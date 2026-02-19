@@ -14,7 +14,7 @@ if [ ! -f "$TEAM_FILE" ]; then
   exit 1
 fi
 
-docker compose -p team${TEAM_ID} -f docker-compose.yml -f $TEAM_FILE down -v
+docker compose -p team${TEAM_ID} -f docker-compose.yaml -f $TEAM_FILE down -v
 
 rm $TEAM_FILE
 
