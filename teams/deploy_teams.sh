@@ -44,7 +44,7 @@ volumes:
 EOF
 
   echo "✅ Deploying Team $i on port $PORT"
-  docker compose -p team${i} -f docker-compose.yml -f $TEAM_FILE up -d
+  docker compose -p team${i} -f docker-compose.yaml -f $TEAM_FILE up -d
 done
 
 echo "🎯 Deployment complete!"
