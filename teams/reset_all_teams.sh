@@ -13,6 +13,6 @@ for TEAM_FILE in teams/team*.yml; do
 done
 
 # Remove all override files
-rm -f teams/team*.yml
+rm -f teams/team*.yaml
 
 echo "✅ All teams removed."
