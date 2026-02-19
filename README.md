@@ -97,13 +97,14 @@ You should see output ending in `=> => naming to docker.io/library/ctf-web:lates
 
 ### Step 3: Configure the manager
 
-Open `manager/docker-compose.yaml` in a text editor. Fill in the four required values:
+Open `manager/docker-compose.yaml` in a text editor. Fill in the required values:
 
 ```yaml
 environment:
   SECRET_KEY:       "replace-with-a-random-string"
   ADMIN_TOKEN:      "replace-with-your-admin-password"
-  CTF_COMPOSE_FILE: "/absolute/host/path/to/bankingai-ctf/challenge/docker-compose.yaml"
+  CTF_COMPOSE_FILE: "/ctf/challenge/docker-compose.yaml"   # leave exactly as-is
+  CHALLENGE_DIR:    "/absolute/host/path/to/bankingai-ctf/challenge"
   HOST_IP:          "192.168.x.x"
   PORT_RANGE_START: "8000"
 ```
@@ -115,23 +116,23 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 
 **`ADMIN_TOKEN`** — the password you'll use to log in to `/admin`. Pick anything secure.
 
-**`CTF_COMPOSE_FILE`** — the **absolute path on the host machine** to `challenge/docker-compose.yaml`. This must be the real host path, not a path inside the manager container, because Docker resolves bind-mount paths relative to the host filesystem.
+**`CTF_COMPOSE_FILE`** — leave this as `/ctf/challenge/docker-compose.yaml`. The compose file is bind-mounted into the manager container at that path. Do not change it.
+
+**`CHALLENGE_DIR`** — the **absolute path on the host machine** to the `challenge/` directory. The manager passes this to `docker compose --project-directory` so the Docker daemon resolves relative bind mounts (`./web/src` etc.) against the correct host paths.
 
 ```
-# Examples:
-# Linux/macOS:
-CTF_COMPOSE_FILE: "/home/alice/bankingai-ctf/challenge/docker-compose.yaml"
-
-# WSL2 on Windows (use the Linux path, not C:\...):
-CTF_COMPOSE_FILE: "/home/alice/bankingai-ctf/challenge/docker-compose.yaml"
+# Example: if you cloned to /home/alice/bankingai-ctf
+CHALLENGE_DIR: "/home/alice/bankingai-ctf/challenge"
 ```
 
-To find the path, run this from the repo root:
+To find the correct value, run from the repo root:
 ```bash
-realpath challenge/docker-compose.yaml
+realpath challenge
 ```
 
-**`HOST_IP`** — the IP address or hostname that players will use to reach their instance (e.g. `http://HOST_IP:8001`). This must be reachable from players' machines **and** from inside the manager Docker container.
+**`HOST_IP`** — the IP address or hostname shown to players in their dashboard URL (`http://HOST_IP:PORT`). Must be reachable from players' machines.
+
+> Use your LAN IP, not `127.0.0.1` — players would just get a link to their own machine.
 
 Find your LAN IP:
 ```bash
@@ -141,11 +142,9 @@ hostname -I | awk '{print $1}'
 # macOS
 ipconfig getifaddr en0
 
-# Windows (in PowerShell)
+# Windows (PowerShell)
 (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike "*Loopback*"} | Select-Object -First 1).IPAddress
 ```
-
-> Do **not** use `127.0.0.1` for `HOST_IP` unless you are testing with only one machine — the manager polls `http://HOST_IP:PORT` from inside its container, so `127.0.0.1` would point back to the manager itself instead of the team's instance.
 
 **`PORT_RANGE_START`** — first port assigned to teams. Ports are assigned sequentially: team 1 gets 8000, team 2 gets 8001, etc. Make sure this range is open in your firewall.
 
@@ -162,8 +161,8 @@ The manager is now running at **http://localhost** (port 80).
 1. Manager creates a DB entry and assigns a port
 2. Manager calls `docker compose up -d` on the host (via the Docker socket)
 3. Team's dashboard shows "Starting…" and auto-refreshes every 5 seconds
-4. Once the web container responds with HTTP 200, status changes to "Ready"
-5. Team's dashboard shows a clickable link: `http://HOST_IP:PORT`
+4. Manager polls via the Docker socket until the web container is `running`
+5. Status flips to "Ready" and the dashboard shows a clickable link: `http://HOST_IP:PORT`
 
 > The DB init (~30s) is the main source of startup delay. The auto-refresh will catch it.
 
@@ -287,7 +286,10 @@ If containers aren't there, check manager logs:
 cd manager && docker compose logs manager --follow
 ```
 
-Common cause: `CTF_COMPOSE_FILE` points to the wrong path or the challenge image wasn't built.
+Common causes:
+- `CHALLENGE_DIR` is not set or points to the wrong host path
+- The challenge image wasn't built (`cd challenge && docker compose build`)
+- Check manager logs: `docker logs ctf_manager`
 
 **`docker compose up` in the manager fails with "image not found"**
 
