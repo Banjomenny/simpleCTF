@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
 <h3>Uploaded Files</h3>
 <ul>
 <?php
-$files = array_diff(scandir($uploadDir), ['.', '..']);
+$files = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 foreach ($files as $fn) {
     echo "<li><a href='uploads/" . rawurlencode($fn) . "' target='_blank'>" . htmlspecialchars($fn) . "</a></li>";
 }
