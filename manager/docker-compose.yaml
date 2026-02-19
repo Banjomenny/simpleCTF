@@ -18,13 +18,18 @@ services:
       SECRET_KEY:        "change-me-to-a-random-string"
       ADMIN_TOKEN:       "change-me-to-a-secret-token"
 
-      # Path to the CTF compose file *as seen by the Docker daemon on the host*.
-      # Because `docker compose` resolves bind-mount paths relative to the HOST
-      # filesystem (not the manager container), this must be the real host path.
+      # Path to the compose file as seen INSIDE the manager container.
+      # The file is bind-mounted from ../challenge/docker-compose.yaml (see volumes above).
+      # Do not change this unless you change the volume mount target too.
+      CTF_COMPOSE_FILE:  "/ctf/challenge/docker-compose.yaml"
+
+      # Absolute path to the challenge/ directory on the HOST machine.
+      # Used as --project-directory so the Docker daemon resolves relative bind mounts
+      # (e.g. ./web/src) against the real host filesystem, not the container filesystem.
       #
-      # Example: if your repo lives at /home/user/bankingai-ctf on the host, set:
-      #   CTF_COMPOSE_FILE: /home/user/bankingai-ctf/challenge/docker-compose.yaml
-      CTF_COMPOSE_FILE:  "/home/user/bankingai-ctf/challenge/docker-compose.yaml"
+      # Example: if you cloned the repo to /home/user/bankingai-ctf on the host, set:
+      #   CHALLENGE_DIR: /home/user/bankingai-ctf/challenge
+      CHALLENGE_DIR:     "/home/user/bankingai-ctf/challenge"
 
       # IP or hostname teams will use to reach their instance.
       # Use a LAN IP, public hostname, or 127.0.0.1 for local testing.

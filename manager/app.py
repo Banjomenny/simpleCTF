@@ -34,7 +34,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
 
 ADMIN_TOKEN      = os.environ.get('ADMIN_TOKEN', '')
+# Path the compose CLIENT reads (inside the container)
 CTF_COMPOSE_FILE = os.environ.get('CTF_COMPOSE_FILE', '/ctf/challenge/docker-compose.yaml')
+# Host filesystem path to challenge/ — passed as --project-directory so the
+# Docker daemon resolves relative bind mounts (./web/src etc.) to the right host paths
+CHALLENGE_DIR    = os.environ.get('CHALLENGE_DIR', '')
 PORT_RANGE_START = int(os.environ.get('PORT_RANGE_START', '8000'))
 HOST_IP          = os.environ.get('HOST_IP', '127.0.0.1')
 
@@ -104,11 +108,20 @@ def _compose_env(port: int) -> dict:
     return {**os.environ, 'PORT': str(port)}
 
 
+def _compose_cmd(team_name: str) -> list:
+    """Build the base `docker compose` command with correct file + project-directory."""
+    cmd = ['docker', 'compose', '-p', f'ctf_{team_name}', '-f', CTF_COMPOSE_FILE]
+    if CHALLENGE_DIR:
+        # --project-directory tells compose to resolve relative paths (./web/src etc.)
+        # against the host filesystem path, not the container path
+        cmd += ['--project-directory', CHALLENGE_DIR]
+    return cmd
+
+
 def docker_up(team_name: str, port: int):
-    """Start CTF containers for a team (non-blocking; status set to 'starting')."""
+    """Start CTF containers for a team."""
     result = subprocess.run(
-        ['docker', 'compose', '-p', f'ctf_{team_name}',
-         '-f', CTF_COMPOSE_FILE, 'up', '-d'],
+        _compose_cmd(team_name) + ['up', '-d'],
         env=_compose_env(port),
         capture_output=True, text=True,
     )
@@ -122,8 +135,7 @@ def docker_up(team_name: str, port: int):
 def docker_down(team_name: str, port: int):
     """Stop and wipe CTF containers + volumes for a team."""
     subprocess.run(
-        ['docker', 'compose', '-p', f'ctf_{team_name}',
-         '-f', CTF_COMPOSE_FILE, 'down', '-v'],
+        _compose_cmd(team_name) + ['down', '-v'],
         env=_compose_env(port),
         check=False,
     )
