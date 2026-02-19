@@ -38,6 +38,6 @@ volumes:
   team${TEAM_ID}_db_data:
 EOF
 
-docker compose -p team${TEAM_ID} -f docker-compose.yml -f $TEAM_FILE up -d
+docker compose -p team${TEAM_ID} -f docker-compose.yaml -f $TEAM_FILE up -d
 
 echo "✅ Team $TEAM_ID started on port $PORT"
