@@ -9,7 +9,7 @@ fi
 for TEAM_FILE in teams/team*.yml; do
   TEAM_NAME=$(basename $TEAM_FILE .yml | sed 's/team//')
   echo "🗑 Removing Team $TEAM_NAME..."
-  docker compose -p team${TEAM_NAME} -f docker-compose.yml -f $TEAM_FILE down -v
+  docker compose -p team${TEAM_NAME} -f docker-compose.yaml -f $TEAM_FILE down -v
 done
 
 # Remove all override files
