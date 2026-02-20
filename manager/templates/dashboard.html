@@ -3,98 +3,123 @@
 {% block title %}Dashboard — {{ team.name }}{% endblock %}
 
 {% block head_extra %}
-{% if team.status == 'starting' %}
-<meta http-equiv="refresh" content="5">
-{% endif %}
+{% if team.status == 'starting' %}<meta http-equiv="refresh" content="5">{% endif %}
+<style>
+  .instance-url {
+    display: block;
+    background: var(--bg);
+    border: 1px solid var(--bdr2);
+    padding: .6rem .85rem;
+    font-family: var(--mono);
+    font-size: .88rem;
+    color: var(--cyan);
+    text-decoration: none;
+    transition: border-color .2s, box-shadow .2s;
+    word-break: break-all;
+    margin-top: .4rem;
+    margin-bottom: 1.5rem;
+  }
+  .instance-url:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 14px rgba(0,200,255,.1);
+    color: var(--head);
+  }
+  .instance-url.disabled { color: var(--muted); pointer-events: none; }
+
+  .score-block { margin-bottom: 1.5rem; }
+  .score-num {
+    font-family: var(--disp);
+    font-size: 2.6rem;
+    color: var(--green);
+    letter-spacing: .04em;
+    line-height: 1;
+  }
+  .score-denom { font-family: var(--mono); font-size: .8rem; color: var(--muted); margin-left: .3rem; }
+  .score-bar { height: 3px; background: var(--bdr2); margin-top: .7rem; overflow: hidden; }
+  .score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+    max-width: 100%;
+    transition: width .5s ease;
+  }
+
+  .flag-row-open  td:first-child { border-left: 3px solid var(--bdr2); }
+  .flag-row-done  td:first-child { border-left: 3px solid var(--green); }
+  .flag-row-blood td:first-child { border-left: 3px solid var(--red); }
+</style>
 {% endblock %}
 
 {% block nav %}
-  <span class="muted" style="font-size:0.85rem;">{{ team.name }}</span>
+  <span class="nav-chip">{{ team.name }}</span>
   <a href="/logout">Logout</a>
 {% endblock %}
 
 {% block content %}
 <div class="card" style="min-width:340px;">
-  <h1>Your CTF Instance</h1>
 
-  <table style="margin-bottom:1.25rem;">
-    <tr>
-      <th>Team</th>
-      <td class="mono">{{ team.name }}</td>
-    </tr>
-    <tr>
-      <th>Status</th>
-      <td>
-        <span class="badge {{ team.status }}">{{ team.status }}</span>
-        {% if team.status == 'starting' %}
-          <span class="muted" style="font-size:0.78rem; margin-left:0.5rem;">
-            (refreshing in 5s&hellip;)
-          </span>
-        {% endif %}
-      </td>
-    </tr>
-    <tr>
-      <th>URL</th>
-      <td>
-        {% if team.status == 'ready' %}
-          <a href="{{ instance_url }}" target="_blank" rel="noopener">{{ instance_url }}</a>
-        {% else %}
-          <span class="muted">{{ instance_url }}</span>
-        {% endif %}
-      </td>
-    </tr>
-    <tr>
-      <th>Score</th>
-      <td>
-        <span style="color:var(--green); font-weight:bold; font-size:1.1rem;">{{ score }}</span>
-        <span class="muted" style="font-size:0.82rem;"> / {{ max_score }} pts</span>
-      </td>
-    </tr>
-  </table>
+  <!-- Title + status -->
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+    <h1 style="margin:0;">Your Instance</h1>
+    <span class="badge {{ team.status }}">
+      {{ team.status }}
+      {% if team.status == 'starting' %}&hellip;{% endif %}
+    </span>
+  </div>
+
+  <!-- Instance URL -->
+  <h3>Instance URL</h3>
+  {% if team.status == 'ready' %}
+    <a class="instance-url" href="{{ instance_url }}" target="_blank" rel="noopener">{{ instance_url }} ↗</a>
+  {% else %}
+    <span class="instance-url disabled">{{ instance_url }}</span>
+  {% endif %}
+
+  <!-- Score -->
+  <div class="score-block">
+    <h3 style="margin-bottom:.4rem;">Score</h3>
+    <span class="score-num">{{ score }}</span>
+    <span class="score-denom">/ {{ max_score }} pts</span>
+    <div class="score-bar">
+      <div class="score-fill" style="width:{{ ((score / max_score * 100)|int) if max_score else 0 }}%;"></div>
+    </div>
+  </div>
 
   {% if team.status == 'starting' %}
   <div class="flash info" style="margin-bottom:1.25rem;">
-    Your CTF environment is initialising. The database takes ~30 seconds to start.
-    This page will refresh automatically.
-  </div>
-  {% elif team.status == 'ready' %}
-  <div class="flash success" style="margin-bottom:1.25rem;">
-    Your instance is live! Open the URL above to begin the challenge.
+    Environment initialising &mdash; database takes ~30s. Auto-refreshing&hellip;
   </div>
   {% elif team.status == 'stopped' %}
   <div class="flash error" style="margin-bottom:1.25rem;">
-    Your instance has been stopped by an admin. Contact the organiser.
+    Instance stopped by admin. Contact the organiser.
   </div>
   {% endif %}
 
-  <!-- Flag progress grid -->
+  <!-- Flags -->
   <h2>Flags</h2>
-  <table style="margin-top:0.5rem; margin-bottom:1.5rem;">
+  <table style="margin-bottom:1.75rem;">
     <thead>
       <tr>
-        <th>Flag</th>
+        <th>Challenge</th>
         <th>Pts</th>
         <th>Status</th>
       </tr>
     </thead>
     <tbody>
       {% for f in flags %}
-      <tr>
+      <tr class="{% if f.id in captured %}{% if f.id in fb_flags %}flag-row-blood{% else %}flag-row-done{% endif %}{% else %}flag-row-open{% endif %}">
         <td>{{ f.name }}</td>
-        <td class="muted">
+        <td class="mono muted">
           {{ f.points }}
           {% if f.id in captured and f.id in fb_flags %}
-            <span style="color:var(--red); font-size:0.72rem;">
-              +{{ (f.points * f.fb_multiplier)|int - f.points }} FB
+            <span style="color:var(--red);font-size:.7rem;margin-left:.2rem;">
+              +{{ (f.points * f.fb_multiplier)|int - f.points }}FB
             </span>
           {% endif %}
         </td>
         <td>
           {% if f.id in captured %}
             {% if f.id in fb_flags %}
-              <span class="badge" style="background:#2d0f0f; color:var(--red); border-color:var(--red);">
-                &#9632; first blood
-              </span>
+              <span class="badge" style="background:rgba(255,61,82,.1);border:1px solid var(--red);color:var(--red);">&#9632; first blood</span>
             {% else %}
               <span class="badge ready">&#10003; captured</span>
             {% endif %}
@@ -107,13 +132,13 @@
     </tbody>
   </table>
 
-  <!-- Flag submission -->
-  <h2>Submit a Flag</h2>
-  <form method="POST" action="/submit" style="margin-top:0.5rem;">
+  <!-- Submit flag -->
+  <h2>Submit Flag</h2>
+  <form method="POST" action="/submit" style="margin-top:.25rem;">
     <label for="flag-input">Flag value</label>
-    <input id="flag-input" type="text" name="flag"
-           placeholder="CTF{...}" autocomplete="off" required>
+    <input id="flag-input" type="text" name="flag" placeholder="CTF{...}" autocomplete="off" required>
     <button type="submit">Submit</button>
   </form>
+
 </div>
 {% endblock %}

@@ -2,42 +2,48 @@
 
 {% block title %}BankingAI CTF{% endblock %}
 
+{% block head_extra %}
+<style>
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--bdr);
+    margin: -2rem -2rem 1.75rem;
+  }
+  .tab-btn {
+    flex: 1; margin: 0; border-radius: 0; border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent; font-family: var(--sans); font-weight: 700;
+    font-size: .75rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); padding: .8rem; cursor: pointer;
+    transition: color .15s, border-color .15s; box-shadow: none;
+  }
+  .tab-btn:hover { background: rgba(0,200,255,.04); box-shadow: none; }
+  .tab-btn.active { color: var(--head); border-bottom-color: var(--cyan); background: transparent; }
+  .form-hint { font-size: .82rem; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.5; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card" style="min-width:320px;">
 
-  <!-- Tabs -->
-  <div style="display:flex; border-bottom:1px solid var(--border); margin:-2rem -2rem 1.5rem;">
-    <button type="button" id="tab-register"
-            onclick="switchTab('register')"
-            style="flex:1; margin:0; border-radius:6px 0 0 0; border:none;
-                   border-bottom:2px solid var(--green); background:var(--surface);
-                   color:var(--heading); padding:0.65rem;">
-      Register
-    </button>
-    <button type="button" id="tab-login"
-            onclick="switchTab('login')"
-            style="flex:1; margin:0; border-radius:0 6px 0 0; border:none;
-                   border-bottom:2px solid transparent; background:var(--surface);
-                   color:var(--muted); padding:0.65rem;">
-      Login
-    </button>
+  <div class="tab-bar">
+    <button type="button" class="tab-btn active" id="tab-register" onclick="switchTab('register')">Register</button>
+    <button type="button" class="tab-btn" id="tab-login" onclick="switchTab('login')">Log In</button>
   </div>
 
-  <!-- Register form -->
+  <!-- Register panel -->
   <div id="panel-register">
-    <p class="muted" style="font-size:0.82rem; margin-bottom:1.25rem;">
-      Create a team to get your own isolated CTF instance.
-    </p>
+    <p class="form-hint">Create a team to receive your isolated CTF instance.</p>
     <form method="POST" action="/register">
       <label for="reg-name">Team name</label>
       <input id="reg-name" type="text" name="name"
-             placeholder="lowercase, no spaces" maxlength="32"
+             placeholder="lowercase · no spaces" maxlength="32"
              pattern="[a-z0-9_-]+"
              title="Lowercase letters, numbers, underscores, hyphens only"
              required>
       <label for="reg-pass">Password</label>
       <input id="reg-pass" type="password" name="password"
-             placeholder="choose a password" minlength="8" required>
+             placeholder="min 8 characters" minlength="8" required>
       <label for="reg-pass2">Confirm password</label>
       <input id="reg-pass2" type="password" name="password2"
              placeholder="repeat password" required>
@@ -45,24 +51,20 @@
     </form>
   </div>
 
-  <!-- Login form -->
+  <!-- Login panel -->
   <div id="panel-login" style="display:none;">
-    <p class="muted" style="font-size:0.82rem; margin-bottom:1.25rem;">
-      Already registered? Log in to view your instance.
-    </p>
+    <p class="form-hint">Already registered? Log in to view your instance.</p>
     <form method="POST" action="/login">
       <label for="login-name">Team name</label>
-      <input id="login-name" type="text" name="name"
-             placeholder="your team name" required>
+      <input id="login-name" type="text" name="name" placeholder="your team name" required>
       <label for="login-pass">Password</label>
-      <input id="login-pass" type="password" name="password"
-             placeholder="your password" required>
-      <button type="submit">Login</button>
+      <input id="login-pass" type="password" name="password" placeholder="your password" required>
+      <button type="submit">Log In</button>
     </form>
   </div>
 
-  <p style="text-align:center; margin-top:1.25rem; font-size:0.8rem; color:var(--muted);">
-    Admin? <a href="/admin">Admin panel</a>.
+  <p style="text-align:center; margin-top:1.5rem; font-size:.78rem; color:var(--muted);">
+    Admin? <a href="/admin">Admin panel &rarr;</a>
   </p>
 </div>
 
@@ -71,13 +73,10 @@
     var isReg = tab === 'register';
     document.getElementById('panel-register').style.display = isReg ? '' : 'none';
     document.getElementById('panel-login').style.display    = isReg ? 'none' : '';
-    document.getElementById('tab-register').style.borderBottomColor = isReg ? 'var(--green)' : 'transparent';
-    document.getElementById('tab-register').style.color = isReg ? 'var(--heading)' : 'var(--muted)';
-    document.getElementById('tab-login').style.borderBottomColor = isReg ? 'transparent' : 'var(--green)';
-    document.getElementById('tab-login').style.color = isReg ? 'var(--muted)' : 'var(--heading)';
+    document.getElementById('tab-register').classList.toggle('active', isReg);
+    document.getElementById('tab-login').classList.toggle('active', !isReg);
   }
 
-  // If a flash message came from a login error, open the login tab
   {% for category, message in get_flashed_messages(with_categories=true) %}
     {% if 'password' in message.lower() or 'team name' in message.lower() %}
       switchTab('{{ "login" if "Invalid" in message else "register" }}');

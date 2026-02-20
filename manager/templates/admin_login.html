@@ -1,19 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Login — CTF Manager{% endblock %}
+{% block title %}Admin Login{% endblock %}
 
 {% block content %}
 <div class="card" style="min-width:320px;">
-  <h1>Admin Login</h1>
-  <p class="muted" style="font-size:0.82rem; margin-bottom:1.25rem;">
-    Sign in to access the admin panel.
-  </p>
+  <h1 style="margin-bottom:.25rem;">Admin Access</h1>
+  <p class="muted" style="font-size:.82rem; margin-bottom:1.5rem;">Restricted area. Authorized personnel only.</p>
   <form method="POST" action="/admin/login">
     <label for="username">Username</label>
     <input id="username" type="text" name="username" placeholder="admin"
            required autocomplete="username">
     <label for="password">Password</label>
-    <input id="password" type="password" name="password" placeholder="password"
+    <input id="password" type="password" name="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
            required autocomplete="current-password">
     <button type="submit">Sign In</button>
   </form>

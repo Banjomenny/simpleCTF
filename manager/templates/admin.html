@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Panel — CTF Manager{% endblock %}
-
-{% block max_width %}960px{% endblock %}
+{% block title %}Admin Panel{% endblock %}
+{% block max_width %}1100px{% endblock %}
 
 {% block nav %}
-  <span class="muted" style="font-size:0.85rem;">admin</span>
+  <span class="nav-chip">admin</span>
   <a href="/admin/logout">Log out</a>
 {% endblock %}
 
 {% block content %}
-<div class="card" style="min-width:600px; overflow-x:auto;">
-  <h1>Admin Panel</h1>
-  <p class="muted" style="font-size:0.82rem; margin-bottom:1.25rem;">
-    {{ teams|length }} team(s) registered &mdash;
-    <a href="/admin" style="font-size:0.82rem;">Refresh</a>
-  </p>
+<div class="card" style="overflow-x:auto;">
+
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+    <div>
+      <h1 style="margin-bottom:.15rem;">Admin Panel</h1>
+      <p class="muted" style="font-size:.8rem;">{{ teams|length }} team(s) registered</p>
+    </div>
+    <a href="/admin" class="btn" style="width:auto; margin:0; padding:.4rem 1rem; font-size:.72rem;">&#8635; Refresh</a>
+  </div>
 
   {% if teams %}
   <table>
@@ -27,38 +29,35 @@
         <th>Status</th>
         <th>Score</th>
         <th>Flags</th>
-        <th>Created</th>
+        <th>Registered</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
     {% for team in teams %}
       <tr>
-        <td class="muted">{{ team.id }}</td>
-        <td class="mono">{{ team.name }}</td>
+        <td class="mono muted">{{ team.id }}</td>
+        <td class="mono" style="color:var(--head);">{{ team.name }}</td>
         <td class="mono">{{ team.port }}</td>
         <td><span class="badge {{ team.status }}">{{ team.status }}</span></td>
-        <td style="color:var(--green); font-weight:bold;">{{ team.score }}</td>
+        <td class="mono" style="color:var(--green); font-weight:700;">{{ team.score }}</td>
         <td class="muted">{{ team.captures }}/5</td>
-        <td class="muted" style="font-size:0.8rem;">{{ team.created_at }}</td>
+        <td class="muted mono" style="font-size:.78rem;">{{ team.created_at }}</td>
         <td style="white-space:nowrap;">
           {% if team.status != 'stopped' %}
-          <form class="action-form" method="POST"
-                action="/admin/stop/{{ team.name }}"
+          <form class="action-form" method="POST" action="/admin/stop/{{ team.name }}"
                 onsubmit="return confirm('Stop + wipe {{ team.name }}?')">
             <button type="submit" class="danger">Stop</button>
           </form>
           &nbsp;
           {% endif %}
-          <form class="action-form" method="POST"
-                action="/admin/restart/{{ team.name }}"
+          <form class="action-form" method="POST" action="/admin/restart/{{ team.name }}"
                 onsubmit="return confirm('Restart {{ team.name }}?')">
             <button type="submit" class="secondary">Restart</button>
           </form>
           &nbsp;
-          <form class="action-form" method="POST"
-                action="/admin/delete/{{ team.name }}"
-                onsubmit="return confirm('Permanently delete {{ team.name }} from the panel? This cannot be undone.')">
+          <form class="action-form" method="POST" action="/admin/delete/{{ team.name }}"
+                onsubmit="return confirm('Permanently delete {{ team.name }}? This cannot be undone.')">
             <button type="submit" class="danger">Delete</button>
           </form>
         </td>
@@ -67,9 +66,8 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted" style="text-align:center; padding:2rem 0;">
-    No teams registered yet.
-  </p>
+  <p class="muted" style="text-align:center; padding:3rem 0; font-size:.9rem;">No teams registered yet.</p>
   {% endif %}
+
 </div>
 {% endblock %}
