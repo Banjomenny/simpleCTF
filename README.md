@@ -20,11 +20,12 @@ bankingai-ctf/
    - [Step 3: Configure the manager](#step-3-configure-the-manager)
    - [Step 4: Start the manager](#step-4-start-the-manager)
    - [Step 5: Admin panel](#step-5-admin-panel)
-4. [Managing Teams Manually (no manager)](#managing-teams-manually-no-manager)
-5. [Customising Flags](#customising-flags)
-6. [Stopping & Resetting](#stopping--resetting)
-7. [Troubleshooting](#troubleshooting)
-8. [Repository Layout](#repository-layout)
+4. [Scoring & First Blood](#scoring--first-blood)
+5. [Managing Teams Manually (no manager)](#managing-teams-manually-no-manager)
+6. [Customising Flags](#customising-flags)
+7. [Stopping & Resetting](#stopping--resetting)
+8. [Troubleshooting](#troubleshooting)
+9. [Repository Layout](#repository-layout)
 
 ---
 
@@ -181,8 +182,31 @@ Browse to **http://localhost/admin** and enter your `ADMIN_TOKEN`.
 The admin panel shows every registered team with:
 - Their assigned port and instance URL
 - Current status (starting / ready / stopped / error)
+- Score (including any first blood bonuses) and flags captured
 - **Stop** — runs `docker compose down -v` (destroys containers + DB volume)
 - **Restart** — runs `docker compose up -d` and begins polling again
+
+---
+
+## Scoring & First Blood
+
+Each flag has a base point value reflecting its difficulty. The **first team** to capture a flag earns a bonus (1.2× multiplier by default).
+
+| Flag | Difficulty | Base pts | First Blood pts |
+|------|-----------|----------|-----------------|
+| Inspect the Source | Easy | 75 | 90 |
+| Initial Access | Easy–Medium | 100 | 120 |
+| Admin Access | Medium | 125 | 150 |
+| Credential Harvester | Medium | 150 | 180 |
+| File Upload RCE | Hard | 200 | 240 |
+| **Total** | | **650** | **780** |
+
+- **Base max:** 650 pts (no first bloods)
+- **Max possible:** 780 pts (first blood on every flag)
+
+First blood is indicated by a red square (■) on the scoreboard and a "first blood" badge on the team's dashboard. The submission flash message shows the breakdown: `FIRST BLOOD! "File Upload RCE" — +240 pts (200 x 1.2)`.
+
+To adjust points or the multiplier, edit the `FLAGS` list in `manager/app.py` and rebuild the manager container.
 
 ---
 
