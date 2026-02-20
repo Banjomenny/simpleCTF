@@ -43,22 +43,35 @@
         <td class="mono" style="color:var(--green); font-weight:700;">{{ team.score }}</td>
         <td class="muted">{{ team.captures }}/5</td>
         <td class="muted mono" style="font-size:.78rem;">{{ team.created_at }}</td>
-        <td style="white-space:nowrap;">
-          {% if team.status != 'stopped' %}
-          <form class="action-form" method="POST" action="/admin/stop/{{ team.name }}"
-                onsubmit="return confirm('Stop + wipe {{ team.name }}?')">
-            <button type="submit" class="danger">Stop</button>
-          </form>
-          &nbsp;
-          {% endif %}
-          <form class="action-form" method="POST" action="/admin/restart/{{ team.name }}"
-                onsubmit="return confirm('Restart {{ team.name }}?')">
-            <button type="submit" class="secondary">Restart</button>
-          </form>
-          &nbsp;
-          <form class="action-form" method="POST" action="/admin/delete/{{ team.name }}"
-                onsubmit="return confirm('Permanently delete {{ team.name }}? This cannot be undone.')">
-            <button type="submit" class="danger">Delete</button>
+        <td>
+          <div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;">
+            {% if team.status != 'stopped' %}
+            <form class="action-form" method="POST" action="/admin/stop/{{ team.name }}"
+                  onsubmit="return confirm('Stop + wipe {{ team.name }}?')">
+              <button type="submit" class="danger">Stop</button>
+            </form>
+            {% endif %}
+            <form class="action-form" method="POST" action="/admin/restart/{{ team.name }}"
+                  onsubmit="return confirm('Restart {{ team.name }}?')">
+              <button type="submit" class="secondary">Restart</button>
+            </form>
+            <form class="action-form" method="POST" action="/admin/delete/{{ team.name }}"
+                  onsubmit="return confirm('Permanently delete {{ team.name }}? This cannot be undone.')">
+              <button type="submit" class="danger">Delete</button>
+            </form>
+            <button type="button" class="secondary"
+                    onclick="toggleReset('{{ team.name }}')">Reset PW</button>
+          </div>
+          <form id="pwr-{{ team.name }}" method="POST"
+                action="/admin/reset-password/{{ team.name }}"
+                style="display:none;align-items:center;gap:.3rem;margin-top:.4rem;">
+            <input type="password" name="new_password" placeholder="new password"
+                   minlength="8" required
+                   style="background:var(--bg);border:1px solid var(--bdr2);color:var(--head);
+                          font-family:var(--mono);font-size:.78rem;padding:.28rem .5rem;
+                          outline:none;width:140px;">
+            <button type="submit"
+                    style="margin:0;width:auto;padding:.28rem .65rem;font-size:.7rem;">Set</button>
           </form>
         </td>
       </tr>
@@ -70,4 +83,15 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block head_extra %}
+<script>
+  function toggleReset(name) {
+    var f = document.getElementById('pwr-' + name);
+    var showing = f.style.display === 'flex';
+    f.style.display = showing ? 'none' : 'flex';
+    if (!showing) f.querySelector('input').focus();
+  }
+</script>
 {% endblock %}

@@ -600,6 +600,28 @@ def admin_restart(team_name):
     return redirect(url_for('admin'))
 
 
+@app.route('/admin/reset-password/<team_name>', methods=['POST'])
+@admin_required
+def admin_reset_password(team_name):
+    team = get_team_by_name(team_name)
+    if not team:
+        flash(f'Team "{team_name}" not found.', 'error')
+        return redirect(url_for('admin'))
+
+    new_password = request.form.get('new_password', '')
+    if len(new_password) < 8:
+        flash('New password must be at least 8 characters.', 'error')
+        return redirect(url_for('admin'))
+
+    pw_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    with get_db() as db:
+        db.execute('UPDATE teams SET password_hash = ? WHERE name = ?', (pw_hash, team_name))
+        db.commit()
+
+    flash(f'Password reset for "{team_name}".', 'success')
+    return redirect(url_for('admin'))
+
+
 @app.route('/admin/delete/<team_name>', methods=['POST'])
 @admin_required
 def admin_delete(team_name):
