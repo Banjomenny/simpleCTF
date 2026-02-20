@@ -24,8 +24,9 @@ bankingai-ctf/
 5. [Managing Teams Manually (no manager)](#managing-teams-manually-no-manager)
 6. [Customising Flags](#customising-flags)
 7. [Stopping & Resetting](#stopping--resetting)
-8. [Troubleshooting](#troubleshooting)
-9. [Repository Layout](#repository-layout)
+8. [Full Reset Script](#full-reset-script)
+9. [Troubleshooting](#troubleshooting)
+10. [Repository Layout](#repository-layout)
 
 ---
 
@@ -166,6 +167,8 @@ docker compose up --build -d
 
 The manager is now running at **http://localhost** (port 80).
 
+**Team name rules:** lowercase letters, numbers, hyphens, and underscores only (`[a-z0-9_-]`, max 32 chars). Uppercase is rejected at registration.
+
 **What happens when a team registers:**
 1. Manager creates a DB entry and assigns a port
 2. Manager calls `docker compose up -d` on the host (via the Docker socket)
@@ -182,9 +185,11 @@ Browse to **http://localhost/admin** and enter your `ADMIN_TOKEN`.
 The admin panel shows every registered team with:
 - Their assigned port and instance URL
 - Current status (starting / ready / stopped / error)
-- Score (including any first blood bonuses) and flags captured
+- Score (including any first blood bonuses) and flags captured (x/5)
 - **Stop** — runs `docker compose down -v` (destroys containers + DB volume)
 - **Restart** — runs `docker compose up -d` and begins polling again
+
+> **Note:** Stop wipes the team's MySQL volume. Their flags will be re-injected with new values on the next Restart — so after a Stop + Restart the credential harvester flag changes. If you only Restart (without Stop first), the DB volume is reused and the old flag persists.
 
 ---
 
@@ -205,6 +210,8 @@ Each flag has a base point value reflecting its difficulty. The **first team** t
 - **Max possible:** 780 pts (first blood on every flag)
 
 First blood is indicated by a red square (■) on the scoreboard and a "first blood" badge on the team's dashboard. The submission flash message shows the breakdown: `FIRST BLOOD! "File Upload RCE" — +240 pts (200 x 1.2)`.
+
+The scoreboard includes a **score-over-time graph** (Chart.js stepped line chart) showing each team's cumulative score as they capture flags. All timestamps are displayed in **Eastern Time** (EST/EDT).
 
 To adjust points or the multiplier, edit the `FLAGS` list in `manager/app.py` and rebuild the manager container.
 
@@ -305,6 +312,26 @@ docker volume ls --filter name=ctf_ -q | xargs docker volume rm
 
 ---
 
+## Full Reset Script
+
+`reset.sh` (at the repo root) performs a complete wipe and redeploy in one command — useful between CTF rounds or when recovering from a broken state.
+
+```bash
+bash ~/bankingai-ctf/reset.sh
+```
+
+What it does (in order):
+1. Removes all `ctf_*` containers
+2. Removes all `ctf_*` volumes (wipes all team DBs)
+3. Deletes `manager/data/` (wipes manager SQLite DB — all team registrations)
+4. Pulls latest code from GitHub (`git pull`)
+5. Rebuilds the challenge Docker image
+6. Rebuilds and starts the manager container
+
+> After running `reset.sh`, all teams must re-register. All scores and submissions are wiped.
+
+---
+
 ## Troubleshooting
 
 **Challenge page won't load after `docker compose up`**
@@ -363,6 +390,7 @@ docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml logs db
 bankingai-ctf/
 │
 ├── README.md                            ← you are here
+├── reset.sh                             ← full wipe + redeploy script
 ├── .gitignore
 │
 ├── challenge/                           ← CTF challenge (what players solve)
@@ -400,9 +428,9 @@ bankingai-ctf/
     ├── .gitignore
     └── templates/
         ├── base.html                    ← dark terminal theme + shared CSS
-        ├── index.html                   ← register (left) + login (right)
+        ├── index.html                   ← tabbed register / login card
         ├── dashboard.html               ← team's instance URL, flag grid, score
-        ├── scoreboard.html              ← public ranked scoreboard
+        ├── scoreboard.html              ← public ranked scoreboard + time graph
         ├── admin.html                   ← all teams table with stop/restart
         └── admin_login.html             ← token prompt
 ```
