@@ -12,6 +12,8 @@ Environment variables (set in manager/docker-compose.yaml):
   FLAG_ADMIN_ACCESS, FLAG_FILE_UPLOAD — correct flag values for submission scoring
 """
 
+import hashlib
+import hmac
 import logging
 import os
 import re
@@ -45,6 +47,8 @@ CTF_COMPOSE_FILE = os.environ.get('CTF_COMPOSE_FILE', '/ctf/challenge/docker-com
 CHALLENGE_DIR    = os.environ.get('CHALLENGE_DIR', '')
 PORT_RANGE_START = int(os.environ.get('PORT_RANGE_START', '8000'))
 HOST_IP          = os.environ.get('HOST_IP', '127.0.0.1')
+# Single secret used to derive all per-team flags
+FLAG_SECRET      = os.environ.get('FLAG_SECRET', 'change-me-flag-secret')
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'manager.db')
 
@@ -62,9 +66,18 @@ FLAGS = [
 MAX_SCORE = sum(f['points'] for f in FLAGS)
 
 
-def _flag_value(flag_id: str) -> str:
-    """Return the env-var value for a flag, or empty string if unset."""
-    return os.environ.get(flag_id, '')
+def _team_flag(flag_id: str, team_name: str) -> str:
+    """Generate a deterministic per-team flag.
+    Format: CTF{<slug>_<8-char hmac>}
+    e.g.  CTF{login_3a7f9c21}
+    """
+    slug  = flag_id.replace('FLAG_', '').lower()
+    token = hmac.new(
+        FLAG_SECRET.encode(),
+        f'{flag_id}:{team_name}'.encode(),
+        hashlib.sha256,
+    ).hexdigest()[:8]
+    return f'CTF{{{slug}_{token}}}'
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -188,13 +201,16 @@ def get_scoreboard() -> list:
 # Docker helpers
 # ---------------------------------------------------------------------------
 
-def _compose_env(port: int) -> dict:
-    return {**os.environ, 'PORT': str(port)}
+def _compose_env(port: int, team_name: str) -> dict:
+    env = {**os.environ, 'PORT': str(port)}
+    for f in FLAGS:
+        env[f['id']] = _team_flag(f['id'], team_name)
+    return env
 
 
 def _compose_cmd(team_name: str) -> list:
     """Build the base `docker compose` command with correct file + project-directory."""
-    cmd = ['docker', 'compose', '-p', f'ctf_{team_name}', '-f', CTF_COMPOSE_FILE]
+    cmd = ['docker', 'compose', '-p', f'ctf_{team_name.lower()}', '-f', CTF_COMPOSE_FILE]
     if CHALLENGE_DIR:
         cmd += ['--project-directory', CHALLENGE_DIR]
     return cmd
@@ -204,7 +220,7 @@ def docker_up(team_name: str, port: int):
     """Start CTF containers for a team."""
     result = subprocess.run(
         _compose_cmd(team_name) + ['up', '-d'],
-        env=_compose_env(port),
+        env=_compose_env(port, team_name),
         capture_output=True, text=True,
     )
     if result.returncode != 0:
@@ -218,14 +234,14 @@ def docker_down(team_name: str, port: int):
     """Stop and wipe CTF containers + volumes for a team."""
     subprocess.run(
         _compose_cmd(team_name) + ['down', '-v'],
-        env=_compose_env(port),
+        env=_compose_env(port, team_name),
         check=False,
     )
 
 
 def _web_container_running(team_name: str) -> bool:
     """Return True if the team's web container is in 'running' state."""
-    project = f'ctf_{team_name}'
+    project = f'ctf_{team_name.lower()}'
     result = subprocess.run(
         ['docker', 'ps',
          '--filter', f'name={project}-web',
@@ -290,8 +306,8 @@ def register():
     password  = request.form.get('password', '')
     password2 = request.form.get('password2', '')
 
-    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,32}', name):
-        flash('Team name must be 1–32 chars: letters, numbers, _ or -.', 'error')
+    if not re.fullmatch(r'[a-z0-9_-]{1,32}', name):
+        flash('Team name must be 1–32 chars: lowercase letters, numbers, _ or -.', 'error')
         return redirect(url_for('index'))
     if len(password) < 8:
         flash('Password must be at least 8 characters.', 'error')
@@ -371,8 +387,7 @@ def submit_flag():
 
     matched_id = None
     for f in FLAGS:
-        expected = _flag_value(f['id'])
-        if expected and submitted == expected:
+        if submitted == _team_flag(f['id'], team_name):
             matched_id = f['id']
             break
 

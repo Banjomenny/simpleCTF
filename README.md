@@ -107,6 +107,7 @@ environment:
   CHALLENGE_DIR:    "/absolute/host/path/to/bankingai-ctf/challenge"
   HOST_IP:          "192.168.x.x"
   PORT_RANGE_START: "8000"
+  FLAG_SECRET:      "replace-with-a-random-string"
 ```
 
 **`SECRET_KEY`** — any random string, used to sign Flask session cookies. Generate one:
@@ -147,6 +148,13 @@ ipconfig getifaddr en0
 ```
 
 **`PORT_RANGE_START`** — first port assigned to teams. Ports are assigned sequentially: team 1 gets 8000, team 2 gets 8001, etc. Make sure this range is open in your firewall.
+
+**`FLAG_SECRET`** — a random string used to generate all flags. Each team's flags are derived from this secret and their team name — so every team gets unique flags and players cannot share answers. Generate one the same way as `SECRET_KEY`:
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+> Keep `FLAG_SECRET` private. Anyone who knows it can compute every team's flags.
 
 ### Step 4: Start the manager
 
@@ -207,30 +215,39 @@ bash scripts/list_teams.sh
 
 ## Customising Flags
 
-Edit `challenge/docker-compose.yaml` — the `environment` blocks under `web` and `db`:
+Flag values are generated automatically — you do **not** edit `challenge/docker-compose.yaml`.
 
-```yaml
-services:
-  web:
-    environment:
-      FLAG_LOGIN:        "CTF{your_custom_flag}"
-      FLAG_INSPECTED:    "CTF{your_custom_flag}"
-      FLAG_ADMIN_ACCESS: "CTF{your_custom_flag}"
-      FLAG_FILE_UPLOAD:  "CTF{your_custom_flag}"
+Each flag is derived from `FLAG_SECRET` (set in `manager/docker-compose.yaml`) and the team's name:
 
-  db:
-    environment:
-      FLAG_CREDENTIAL_HARVESTER: "CTF{your_custom_flag}"
+```
+CTF{<slug>_<8-char hmac>}
 ```
 
-Then rebuild and restart:
+Examples for a team named `teamalpha`:
+```
+CTF{inspected_3a7f9c21}
+CTF{login_b4d82f10}
+CTF{credential_harvester_77c1e5aa}
+CTF{admin_access_091f3c88}
+CTF{file_upload_cc482b6f}
+```
 
+Every team gets different flag values — players cannot share answers between instances.
+
+To compute any team's flag value manually (e.g. for the answer sheet):
 ```bash
-cd challenge
-docker compose up --build -d
+python3 -c "
+import hmac, hashlib
+secret = 'your-FLAG_SECRET-value'
+team   = 'teamname'
+flag_id = 'FLAG_LOGIN'
+slug   = flag_id.replace('FLAG_', '').lower()
+token  = hmac.new(secret.encode(), f'{flag_id}:{team}'.encode(), hashlib.sha256).hexdigest()[:8]
+print(f'CTF{{{slug}_{token}}}')
+"
 ```
 
-> `FLAG_CREDENTIAL_HARVESTER` is injected into the `users` table by `db/init_flags.sh` during DB initialisation. It does **not** require any SQL edits — changing the env var and doing a full reset (`down -v && up --build -d`) is enough.
+To change the flag format, change `FLAG_SECRET` in `manager/docker-compose.yaml` and restart the manager. All existing team instances must also be restarted from the admin panel so their containers pick up the new values.
 
 ---
 
@@ -360,7 +377,8 @@ bankingai-ctf/
     └── templates/
         ├── base.html                    ← dark terminal theme + shared CSS
         ├── index.html                   ← register (left) + login (right)
-        ├── dashboard.html               ← team's instance URL + live status
+        ├── dashboard.html               ← team's instance URL, flag grid, score
+        ├── scoreboard.html              ← public ranked scoreboard
         ├── admin.html                   ← all teams table with stop/restart
         └── admin_login.html             ← token prompt
 ```
