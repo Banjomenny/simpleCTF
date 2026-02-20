@@ -72,13 +72,16 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'manager.db')
 # ---------------------------------------------------------------------------
 
 FLAGS = [
-    {'id': 'FLAG_INSPECTED',            'name': 'Inspect the Source',    'points': 100},
-    {'id': 'FLAG_LOGIN',                'name': 'Initial Access',         'points': 100},
-    {'id': 'FLAG_CREDENTIAL_HARVESTER', 'name': 'Credential Harvester',   'points': 100},
-    {'id': 'FLAG_ADMIN_ACCESS',         'name': 'Admin Access',           'points': 100},
-    {'id': 'FLAG_FILE_UPLOAD',          'name': 'File Upload RCE',        'points': 100},
+    # Points reflect difficulty (75–200). fb_multiplier applied to first capture only.
+    {'id': 'FLAG_INSPECTED',            'name': 'Inspect the Source',   'points':  75, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_LOGIN',                'name': 'Initial Access',        'points': 100, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_CREDENTIAL_HARVESTER', 'name': 'Credential Harvester',  'points': 150, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_ADMIN_ACCESS',         'name': 'Admin Access',          'points': 125, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_FILE_UPLOAD',          'name': 'File Upload RCE',       'points': 200, 'fb_multiplier': 1.2},
 ]
-MAX_SCORE = sum(f['points'] for f in FLAGS)
+# Base total (no first blood bonuses). MAX_POSSIBLE includes all first blood bonuses.
+MAX_SCORE    = sum(f['points'] for f in FLAGS)
+MAX_POSSIBLE = sum(int(f['points'] * f['fb_multiplier']) for f in FLAGS)
 
 
 def _team_flag(flag_id: str, team_name: str) -> str:
@@ -183,8 +186,34 @@ def record_submission(team_name: str, flag_id: str) -> bool:
         return False
 
 
+def get_first_bloods() -> dict:
+    """Return {flag_id: team_name} for the first capture of each flag."""
+    with get_db() as db:
+        rows = db.execute(
+            'SELECT flag_id, team_name FROM submissions ORDER BY id'
+        ).fetchall()
+    seen: dict = {}
+    for r in rows:
+        if r['flag_id'] not in seen:
+            seen[r['flag_id']] = r['team_name']
+    return seen
+
+
+def _calc_score(team_name: str, flag_ids: set, first_bloods: dict) -> int:
+    """Sum points for captured flags, applying first-blood multiplier where earned."""
+    score = 0
+    for f in FLAGS:
+        if f['id'] in flag_ids:
+            pts = f['points']
+            if first_bloods.get(f['id']) == team_name:
+                pts = int(pts * f['fb_multiplier'])
+            score += pts
+    return score
+
+
 def get_scoreboard() -> list:
     """Return all teams ranked by score desc, last capture asc."""
+    first_bloods = get_first_bloods()
     with get_db() as db:
         team_rows = db.execute('SELECT name, status FROM teams ORDER BY name').fetchall()
         sub_rows  = db.execute(
@@ -197,15 +226,17 @@ def get_scoreboard() -> list:
 
     board = []
     for t in team_rows:
-        team_subs  = subs[t['name']]
-        flag_ids   = {s['flag_id'] for s in team_subs}
+        team_subs    = subs[t['name']]
+        flag_ids     = {s['flag_id'] for s in team_subs}
         last_cap_utc = max((s['captured_at'] for s in team_subs), default=None)
-        score        = sum(f['points'] for f in FLAGS if f['id'] in flag_ids)
+        score        = _calc_score(t['name'], flag_ids, first_bloods)
+        fb_flags     = {fid for fid, tname in first_bloods.items() if tname == t['name']}
         board.append({
             'name':         t['name'],
             'status':       t['status'],
             'score':        score,
             'flag_ids':     flag_ids,
+            'fb_flags':     fb_flags,
             'last_capture': _ts_to_est(last_cap_utc) if last_cap_utc else None,
             '_sort_key':    last_cap_utc or '9999-99-99',
         })
@@ -383,14 +414,17 @@ def dashboard():
     if not team:
         session.clear()
         return redirect(url_for('index'))
-    instance_url = f'http://{HOST_IP}:{team["port"]}'
+    first_bloods = get_first_bloods()
     captured     = get_team_submissions(session['team'])
-    score        = sum(f['points'] for f in FLAGS if f['id'] in captured)
+    fb_flags     = {fid for fid, tname in first_bloods.items() if tname == session['team']}
+    score        = _calc_score(session['team'], captured, first_bloods)
+    instance_url = f'http://{HOST_IP}:{team["port"]}'
     return render_template('dashboard.html',
                            team=team,
                            instance_url=instance_url,
                            flags=FLAGS,
                            captured=captured,
+                           fb_flags=fb_flags,
                            score=score,
                            max_score=MAX_SCORE)
 
@@ -401,24 +435,33 @@ def submit_flag():
     team_name = session['team']
     submitted = request.form.get('flag', '').strip()
 
-    matched_id = None
+    matched_flag = None
     for f in FLAGS:
         if submitted == _team_flag(f['id'], team_name):
-            matched_id = f['id']
+            matched_flag = f
             break
 
-    if matched_id is None:
+    if matched_flag is None:
         flash('Incorrect flag.', 'error')
         return redirect(url_for('dashboard'))
 
     captured = get_team_submissions(team_name)
-    if matched_id in captured:
+    if matched_flag['id'] in captured:
         flash('You already captured that flag!', 'info')
         return redirect(url_for('dashboard'))
 
-    record_submission(team_name, matched_id)
-    flag_name = next(f['name'] for f in FLAGS if f['id'] == matched_id)
-    flash(f'Correct! "{flag_name}" captured — +100 pts', 'success')
+    first_bloods   = get_first_bloods()
+    is_first_blood = matched_flag['id'] not in first_bloods
+    record_submission(team_name, matched_flag['id'])
+
+    pts = int(matched_flag['points'] * matched_flag['fb_multiplier']) if is_first_blood \
+          else matched_flag['points']
+
+    if is_first_blood:
+        flash(f'FIRST BLOOD! "{matched_flag["name"]}" — +{pts} pts '
+              f'({matched_flag["points"]} x {matched_flag["fb_multiplier"]})', 'success')
+    else:
+        flash(f'Correct! "{matched_flag["name"]}" captured — +{pts} pts', 'success')
     return redirect(url_for('dashboard'))
 
 
@@ -438,19 +481,21 @@ def scoreboard():
     for s in sub_rows:
         subs_by_team[s['team_name']].append(s)
 
+    first_bloods = get_first_bloods()
     graph_data = {}
     for team_name, subs in subs_by_team.items():
         start_ms = _ts_to_ms(created.get(team_name) or subs[0]['captured_at'])
         series = [{'x': start_ms, 'y': 0}]
-        score = 0
+        running_ids: set = set()
         for s in subs:
-            pts = next((f['points'] for f in FLAGS if f['id'] == s['flag_id']), 0)
-            score += pts
+            running_ids.add(s['flag_id'])
+            score = _calc_score(team_name, running_ids, first_bloods)
             series.append({'x': _ts_to_ms(s['captured_at']), 'y': score})
         graph_data[team_name] = series
 
     return render_template('scoreboard.html', board=board, flags=FLAGS,
-                           max_score=MAX_SCORE, graph_data=graph_data)
+                           max_score=MAX_SCORE, max_possible=MAX_POSSIBLE,
+                           graph_data=graph_data)
 
 # ---------------------------------------------------------------------------
 # Routes — admin
@@ -461,10 +506,11 @@ def admin():
     token = request.cookies.get('admin_token') or request.args.get('token', '')
     if not ADMIN_TOKEN or token != ADMIN_TOKEN:
         return render_template('admin_login.html'), 403
-    teams = get_all_teams()
+    teams        = get_all_teams()
+    first_bloods = get_first_bloods()
     for t in teams:
-        captured  = get_team_submissions(t['name'])
-        t['score']    = sum(f['points'] for f in FLAGS if f['id'] in captured)
+        captured      = get_team_submissions(t['name'])
+        t['score']    = _calc_score(t['name'], captured, first_bloods)
         t['captures'] = len(captured)
     resp = app.make_response(render_template('admin.html', teams=teams, max_score=MAX_SCORE))
     if token:

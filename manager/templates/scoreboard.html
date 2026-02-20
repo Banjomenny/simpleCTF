@@ -40,7 +40,12 @@
         <th>#</th>
         <th>Team</th>
         {% for f in flags %}
-          <th style="font-size:0.72rem; max-width:80px;">{{ f.name }}</th>
+          <th style="font-size:0.72rem; max-width:80px;">
+            {{ f.name }}
+            <div class="muted" style="font-weight:normal; font-size:0.68rem; margin-top:2px;">
+              {{ f.points }}pts &middot; x{{ f.fb_multiplier }} FB
+            </div>
+          </th>
         {% endfor %}
         <th>Score</th>
         <th>Last Capture</th>
@@ -60,7 +65,11 @@
         {% for f in flags %}
           <td style="text-align:center;">
             {% if f.id in entry.flag_ids %}
-              <span style="color:var(--green);">&#10003;</span>
+              {% if f.id in entry.fb_flags %}
+                <span style="color:var(--red);" title="First Blood!">&#9632;</span>
+              {% else %}
+                <span style="color:var(--green);">&#10003;</span>
+              {% endif %}
             {% else %}
               <span class="muted">&mdash;</span>
             {% endif %}
@@ -140,7 +149,7 @@
         },
         y: {
           min:  0,
-          max:  {{ max_score }},
+          max:  {{ max_possible }},
           grid:   { color: '#21262d' },
           border: { color: '#30363d' },
           ticks: {

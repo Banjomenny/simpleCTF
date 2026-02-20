@@ -81,10 +81,23 @@
       {% for f in flags %}
       <tr>
         <td>{{ f.name }}</td>
-        <td class="muted">{{ f.points }}</td>
+        <td class="muted">
+          {{ f.points }}
+          {% if f.id in captured and f.id in fb_flags %}
+            <span style="color:var(--red); font-size:0.72rem;">
+              +{{ (f.points * f.fb_multiplier)|int - f.points }} FB
+            </span>
+          {% endif %}
+        </td>
         <td>
           {% if f.id in captured %}
-            <span class="badge ready">&#10003; captured</span>
+            {% if f.id in fb_flags %}
+              <span class="badge" style="background:#2d0f0f; color:var(--red); border-color:var(--red);">
+                &#9632; first blood
+              </span>
+            {% else %}
+              <span class="badge ready">&#10003; captured</span>
+            {% endif %}
           {% else %}
             <span class="badge stopped">open</span>
           {% endif %}
