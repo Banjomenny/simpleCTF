@@ -189,7 +189,7 @@ The admin panel shows every registered team with:
 - **Stop** — runs `docker compose down -v` (destroys containers + DB volume)
 - **Restart** — runs `docker compose up -d` and begins polling again
 
-> **Note:** Stop wipes the team's MySQL volume. Their flags will be re-injected with new values on the next Restart — so after a Stop + Restart the credential harvester flag changes. If you only Restart (without Stop first), the DB volume is reused and the old flag persists.
+> **Note:** Stop wipes the team's MySQL volume. On the next Restart the DB is re-initialised and all flags are re-injected with the **same values** — flags are deterministically derived from `FLAG_SECRET` + team name, so they never change between restarts. The team's score and submission history in the manager are not affected by Stop/Restart.
 
 ---
 

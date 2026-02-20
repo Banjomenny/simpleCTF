@@ -55,7 +55,9 @@ docker compose up --build -d
 
 ## Running Multiple Teams
 
-Each team gets their own isolated instance on a separate port. Scripts are in `scripts/`.
+> **Recommended:** use the manager app (see root `README.md`) — it handles registration, port assignment, flag generation, and the admin panel automatically.
+
+For manual control without the manager, scripts are in `scripts/`.
 
 **Add a team** (auto-assigns port from 8000 upward):
 ```bash
@@ -80,7 +82,9 @@ On first run the web image is built. Subsequent teams reuse the cached image and
 
 ## Customising Flags
 
-All flags are set as environment variables in `docker-compose.yaml`. Edit the values under each service's `environment` block before building:
+**Using the manager (multi-team):** Flags are generated automatically from `FLAG_SECRET` + team name — do not edit `docker-compose.yaml`. See the root `README.md` for details.
+
+**Standalone testing only:** Flags are set as environment variables in `docker-compose.yaml`. Edit the values before starting:
 
 ```yaml
 web:
