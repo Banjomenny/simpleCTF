@@ -10,10 +10,10 @@ services:
     volumes:
       - ./web/src:/var/www/html
     environment:
-      FLAG_LOGIN: "${FLAG_LOGIN}"
-      FLAG_FILE_UPLOAD: "${FLAG_FILE_UPLOAD}"
-      FLAG_ADMIN_ACCESS: "${FLAG_ADMIN_ACCESS}"
-      FLAG_INSPECTED: "${FLAG_INSPECTED}"
+      FLAG_LOGIN: "${FLAG_LOGIN:-CTF{login_testmode}}"
+      FLAG_FILE_UPLOAD: "${FLAG_FILE_UPLOAD:-CTF{file_upload_testmode}}"
+      FLAG_ADMIN_ACCESS: "${FLAG_ADMIN_ACCESS:-CTF{admin_access_testmode}}"
+      FLAG_INSPECTED: "${FLAG_INSPECTED:-CTF{inspected_testmode}}"
 
   db:
     image: mysql:8.0
@@ -22,7 +22,7 @@ services:
       MYSQL_DATABASE: bankingai
       MYSQL_USER: admin
       MYSQL_PASSWORD: password
-      FLAG_CREDENTIAL_HARVESTER: "${FLAG_CREDENTIAL_HARVESTER}"
+      FLAG_CREDENTIAL_HARVESTER: "${FLAG_CREDENTIAL_HARVESTER:-CTF{credential_harvester_testmode}}"
     volumes:
       - ./db/bankingai.sql:/docker-entrypoint-initdb.d/01_bankingai.sql
       - ./db/init_flags.sh:/docker-entrypoint-initdb.d/02_init_flags.sh

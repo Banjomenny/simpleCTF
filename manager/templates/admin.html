@@ -2,10 +2,11 @@
 
 {% block title %}Admin Panel — CTF Manager{% endblock %}
 
-{% block max_width %}900px{% endblock %}
+{% block max_width %}960px{% endblock %}
 
 {% block nav %}
   <span class="muted" style="font-size:0.85rem;">admin</span>
+  <a href="/admin/logout">Log out</a>
 {% endblock %}
 
 {% block content %}
@@ -47,12 +48,18 @@
                 onsubmit="return confirm('Stop + wipe {{ team.name }}?')">
             <button type="submit" class="danger">Stop</button>
           </form>
-          {% endif %}
           &nbsp;
+          {% endif %}
           <form class="action-form" method="POST"
                 action="/admin/restart/{{ team.name }}"
                 onsubmit="return confirm('Restart {{ team.name }}?')">
             <button type="submit" class="secondary">Restart</button>
+          </form>
+          &nbsp;
+          <form class="action-form" method="POST"
+                action="/admin/delete/{{ team.name }}"
+                onsubmit="return confirm('Permanently delete {{ team.name }} from the panel? This cannot be undone.')">
+            <button type="submit" class="danger">Delete</button>
           </form>
         </td>
       </tr>

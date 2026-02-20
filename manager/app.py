@@ -361,6 +361,15 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('is_admin'):
+            return redirect(url_for('admin_login_page'))
+        return f(*args, **kwargs)
+    return decorated
+
 # ---------------------------------------------------------------------------
 # Routes — public
 # ---------------------------------------------------------------------------
@@ -526,29 +535,41 @@ def scoreboard():
 # Routes — admin
 # ---------------------------------------------------------------------------
 
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login_page():
+    if session.get('is_admin'):
+        return redirect(url_for('admin'))
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+        if username == 'admin' and ADMIN_TOKEN and password == ADMIN_TOKEN:
+            session['is_admin'] = True
+            return redirect(url_for('admin'))
+        flash('Invalid username or password.', 'error')
+    return render_template('admin_login.html')
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('is_admin', None)
+    return redirect(url_for('admin_login_page'))
+
+
 @app.route('/admin')
+@admin_required
 def admin():
-    token = request.cookies.get('admin_token') or request.args.get('token', '')
-    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
-        return render_template('admin_login.html'), 403
     teams        = get_all_teams()
     first_bloods = get_first_bloods()
     for t in teams:
         captured      = get_team_submissions(t['name'])
         t['score']    = _calc_score(t['name'], captured, first_bloods)
         t['captures'] = len(captured)
-    resp = app.make_response(render_template('admin.html', teams=teams, max_score=MAX_SCORE))
-    if token:
-        resp.set_cookie('admin_token', token, httponly=True, samesite='Lax')
-    return resp
+    return render_template('admin.html', teams=teams, max_score=MAX_SCORE)
 
 
 @app.route('/admin/stop/<team_name>', methods=['POST'])
+@admin_required
 def admin_stop(team_name):
-    token = request.cookies.get('admin_token', '')
-    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
-        return 'Forbidden', 403
-
     team = get_team_by_name(team_name)
     if not team:
         flash(f'Team "{team_name}" not found.', 'error')
@@ -564,11 +585,8 @@ def admin_stop(team_name):
 
 
 @app.route('/admin/restart/<team_name>', methods=['POST'])
+@admin_required
 def admin_restart(team_name):
-    token = request.cookies.get('admin_token', '')
-    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
-        return 'Forbidden', 403
-
     team = get_team_by_name(team_name)
     if not team:
         flash(f'Team "{team_name}" not found.', 'error')
@@ -579,6 +597,29 @@ def admin_restart(team_name):
         target=launch_and_poll, args=(team_name, team['port']), daemon=True
     ).start()
     flash(f'Restarting "{team_name}"…', 'info')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/delete/<team_name>', methods=['POST'])
+@admin_required
+def admin_delete(team_name):
+    team = get_team_by_name(team_name)
+    if not team:
+        flash(f'Team "{team_name}" not found.', 'error')
+        return redirect(url_for('admin'))
+
+    # Best-effort Docker cleanup (may already be gone if remove_team.sh was used)
+    threading.Thread(
+        target=lambda: docker_down(team_name, team['port']),
+        daemon=True
+    ).start()
+
+    with get_db() as db:
+        db.execute('DELETE FROM submissions WHERE team_name = ?', (team_name,))
+        db.execute('DELETE FROM teams WHERE name = ?', (team_name,))
+        db.commit()
+
+    flash(f'Team "{team_name}" deleted.', 'info')
     return redirect(url_for('admin'))
 
 # ---------------------------------------------------------------------------
