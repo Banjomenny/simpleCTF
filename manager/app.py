@@ -263,13 +263,18 @@ def _compose_cmd(team_name: str) -> list:
     return cmd
 
 
+# Serialize docker compose up calls — concurrent MySQL inits can deadlock health checks
+_compose_lock = threading.Lock()
+
+
 def docker_up(team_name: str, port: int):
-    """Start CTF containers for a team."""
-    result = subprocess.run(
-        _compose_cmd(team_name) + ['up', '-d'],
-        env=_compose_env(port, team_name),
-        capture_output=True, text=True,
-    )
+    """Start CTF containers for a team (serialized to prevent concurrent init races)."""
+    with _compose_lock:
+        result = subprocess.run(
+            _compose_cmd(team_name) + ['up', '-d'],
+            env=_compose_env(port, team_name),
+            capture_output=True, text=True,
+        )
     if result.returncode != 0:
         logging.error('docker_up failed for %s (port %s):\nSTDOUT: %s\nSTDERR: %s',
                       team_name, port, result.stdout, result.stderr)
@@ -286,30 +291,50 @@ def docker_down(team_name: str, port: int):
     )
 
 
-def _web_container_running(team_name: str) -> bool:
-    """Return True if the team's web container is in 'running' state."""
+def _web_container_state(team_name: str) -> str:
+    """Return the Docker state of the web container: 'running', 'created', 'exited', or ''."""
     project = f'ctf_{team_name.lower()}'
     result = subprocess.run(
-        ['docker', 'ps',
+        ['docker', 'ps', '-a',
          '--filter', f'name={project}-web',
-         '--filter', 'status=running',
-         '--format', '{{.Names}}'],
+         '--format', '{{.State}}'],
         capture_output=True, text=True, timeout=10,
     )
-    return project in result.stdout
+    output = result.stdout.strip().lower()
+    if 'running' in output:
+        return 'running'
+    if 'created' in output:
+        return 'created'
+    if 'exited' in output:
+        return 'exited'
+    return ''
 
 
 def _poll_until_ready(team_name: str, port: int, timeout: int = 180):
-    """Background thread: poll via Docker socket until the web container is running."""
+    """Background thread: poll via Docker socket until the web container is running.
+
+    If the web container is stuck in 'created' state (db health check raced with
+    a concurrent compose up), we start it explicitly rather than waiting for compose.
+    """
+    project  = f'ctf_{team_name.lower()}'
     deadline = time.time() + timeout
     logging.info('Polling started for team %s (timeout %ss)', team_name, timeout)
     while time.time() < deadline:
         try:
-            if _web_container_running(team_name):
+            state = _web_container_state(team_name)
+            if state == 'running':
                 time.sleep(2)
                 set_team_status(team_name, 'ready')
                 logging.info('Team %s is ready', team_name)
                 return
+            elif state == 'created':
+                # Compose left the container in Created — db health check wasn't
+                # done when compose exited. Start the container directly.
+                logging.info('Web container for %s is Created; starting it now', team_name)
+                subprocess.run(
+                    ['docker', 'start', f'{project}-web-1'],
+                    capture_output=True, timeout=15,
+                )
         except Exception as exc:
             logging.warning('Poll check error for %s: %s', team_name, exc)
         time.sleep(5)
