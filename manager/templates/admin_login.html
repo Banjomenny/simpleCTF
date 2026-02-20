@@ -12,6 +12,7 @@
   <h1 style="margin-bottom:.25rem;">Admin Access</h1>
   <p class="muted" style="font-size:.82rem; margin-bottom:1.5rem;">Restricted area. Authorized personnel only.</p>
   <form method="POST" action="/admin/login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label for="username">Username</label>
     <input id="username" type="text" name="username" placeholder="admin"
            required autocomplete="username">

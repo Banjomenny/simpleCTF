@@ -40,6 +40,7 @@
   <div id="panel-register">
     <p class="form-hint">Create a team to receive your isolated CTF instance.</p>
     <form method="POST" action="/register">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="reg-name">Team name</label>
       <input id="reg-name" type="text" name="name"
              placeholder="lowercase · no spaces" maxlength="32"
@@ -60,6 +61,7 @@
   <div id="panel-login" style="display:none;">
     <p class="form-hint">Already registered? Log in to view your instance.</p>
     <form method="POST" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="login-name">Team name</label>
       <input id="login-name" type="text" name="name" placeholder="your team name" required>
       <label for="login-pass">Password</label>

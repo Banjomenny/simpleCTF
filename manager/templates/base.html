@@ -86,6 +86,14 @@
       transition: color .15s;
     }
     header nav a:hover { color: var(--cyan); }
+    header nav form { display: contents; }
+    header nav button {
+      all: unset; cursor: pointer;
+      font-family: var(--sans); font-weight: 700; font-size: .72rem;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); transition: color .15s;
+    }
+    header nav button:hover { color: var(--cyan); }
 
     .nav-chip {
       font-family: var(--mono); font-size: .7rem;
@@ -221,6 +229,7 @@
            style="height:34px;width:auto;vertical-align:middle;margin-right:.65rem;">BANKING<span class="ai">AI</span><span class="sep">//</span><span class="tag">CTF MANAGER</span></div>
     <nav>
       <a href="/scoreboard">Scoreboard</a>
+      <a href="https://www.swocts.com" target="_blank" rel="noopener">swocts.com ↗</a>
       {% block nav %}{% endblock %}
     </nav>
   </header>

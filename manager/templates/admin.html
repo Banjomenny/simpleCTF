@@ -5,7 +5,10 @@
 
 {% block nav %}
   <span class="nav-chip">admin</span>
-  <a href="/admin/logout">Log out</a>
+  <form method="POST" action="/admin/logout">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Log out</button>
+  </form>
 {% endblock %}
 
 {% block content %}
@@ -48,23 +51,29 @@
             {% if team.status != 'stopped' %}
             <form class="action-form" method="POST" action="/admin/stop/{{ team.name }}"
                   onsubmit="return confirm('Stop + wipe {{ team.name }}?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="danger">Stop</button>
             </form>
             {% endif %}
             <form class="action-form" method="POST" action="/admin/restart/{{ team.name }}"
                   onsubmit="return confirm('Restart {{ team.name }}?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="secondary">Restart</button>
             </form>
             <form class="action-form" method="POST" action="/admin/delete/{{ team.name }}"
                   onsubmit="return confirm('Permanently delete {{ team.name }}? This cannot be undone.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="danger">Delete</button>
             </form>
-            <button type="button" class="secondary"
-                    onclick="toggleReset('{{ team.name }}')">Reset PW</button>
+            <span class="action-form">
+              <button type="button" class="secondary"
+                      onclick="toggleReset('{{ team.name }}')">Reset PW</button>
+            </span>
           </div>
           <form id="pwr-{{ team.name }}" method="POST"
                 action="/admin/reset-password/{{ team.name }}"
                 style="display:none;align-items:center;gap:.3rem;margin-top:.4rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="password" name="new_password" placeholder="new password"
                    minlength="8" required
                    style="background:var(--bg);border:1px solid var(--bdr2);color:var(--head);

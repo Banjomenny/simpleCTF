@@ -51,7 +51,10 @@
 
 {% block nav %}
   <span class="nav-chip">{{ team.name }}</span>
-  <a href="/logout">Logout</a>
+  <form method="POST" action="/logout">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Logout</button>
+  </form>
 {% endblock %}
 
 {% block content %}
@@ -135,6 +138,7 @@
   <!-- Submit flag -->
   <h2>Submit Flag</h2>
   <form method="POST" action="/submit" style="margin-top:.25rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label for="flag-input">Flag value</label>
     <input id="flag-input" type="text" name="flag" placeholder="CTF{...}" autocomplete="off" required>
     <button type="submit">Submit</button>

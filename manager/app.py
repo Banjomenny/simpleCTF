@@ -30,6 +30,9 @@ from zoneinfo import ZoneInfo
 import bcrypt
 from flask import (Flask, flash, redirect, render_template,
                    request, session, url_for)
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s [%(levelname)s] %(message)s')
@@ -40,6 +43,10 @@ logging.basicConfig(level=logging.INFO,
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
+
+csrf    = CSRFProtect(app)
+limiter = Limiter(get_remote_address, app=app,
+                  storage_uri="memory://", default_limits=[])
 
 ADMIN_TOKEN      = os.environ.get('ADMIN_TOKEN', '')
 # Path the compose CLIENT reads (inside the container)
@@ -382,6 +389,7 @@ def index():
 
 
 @app.route('/register', methods=['POST'])
+@limiter.limit("5 per hour")
 def register():
     name      = request.form.get('name', '').strip()
     password  = request.form.get('password', '')
@@ -419,6 +427,7 @@ def register():
 
 
 @app.route('/login', methods=['POST'])
+@limiter.limit("20 per minute")
 def login():
     name     = request.form.get('name', '').strip()
     password = request.form.get('password', '').encode()
@@ -432,7 +441,7 @@ def login():
     return redirect(url_for('dashboard'))
 
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
     session.clear()
     return redirect(url_for('index'))
@@ -542,14 +551,14 @@ def admin_login_page():
     if request.method == 'POST':
         username = request.form.get('username', '')
         password = request.form.get('password', '')
-        if username == 'admin' and ADMIN_TOKEN and password == ADMIN_TOKEN:
+        if username == 'admin' and ADMIN_TOKEN and hmac.compare_digest(password, ADMIN_TOKEN):
             session['is_admin'] = True
             return redirect(url_for('admin'))
         flash('Invalid username or password.', 'error')
     return render_template('admin_login.html')
 
 
-@app.route('/admin/logout')
+@app.route('/admin/logout', methods=['POST'])
 def admin_logout():
     session.pop('is_admin', None)
     return redirect(url_for('admin_login_page'))
