@@ -753,31 +753,50 @@ def reveal_name():
 def scoreboard():
     board = get_scoreboard()
 
-    # Build per-team cumulative score time series for the graph
+    # Build per-team cumulative score time series for the graph.
+    # Merge flag captures, hint purchases, and name reveals into a single
+    # timeline so the score drops at the moment a purchase is made.
     with get_db() as db:
-        team_rows = db.execute('SELECT name, created_at FROM teams').fetchall()
-        sub_rows  = db.execute(
-            'SELECT team_name, flag_id, captured_at FROM submissions ORDER BY captured_at'
+        team_rows  = db.execute('SELECT name, created_at FROM teams').fetchall()
+        sub_rows   = db.execute(
+            'SELECT team_name, flag_id, captured_at FROM submissions'
+        ).fetchall()
+        hint_rows  = db.execute(
+            'SELECT team_name, hint_id, purchased_at FROM hint_purchases'
+        ).fetchall()
+        name_rows  = db.execute(
+            'SELECT team_name, flag_id AS fid, purchased_at FROM name_purchases'
         ).fetchall()
 
-    created = {r['name']: r['created_at'] for r in team_rows}
-    subs_by_team: dict = defaultdict(list)
+    created      = {r['name']: r['created_at'] for r in team_rows}
+    hint_cost_map = {h['id']: h['cost'] for h in HINTS}
+
+    # Build per-team event lists: (timestamp_str, kind, payload)
+    # kind='flag' payload=flag_id  kind='deduct' payload=pts_cost
+    events_by_team: dict = defaultdict(list)
     for s in sub_rows:
-        subs_by_team[s['team_name']].append(s)
+        events_by_team[s['team_name']].append((s['captured_at'], 'flag', s['flag_id']))
+    for h in hint_rows:
+        cost = hint_cost_map.get(h['hint_id'], 0)
+        events_by_team[h['team_name']].append((h['purchased_at'], 'deduct', cost))
+    for n in name_rows:
+        events_by_team[n['team_name']].append((n['purchased_at'], 'deduct', FLAG_NAME_COST))
 
     capture_order = get_capture_order()
-    hint_costs    = get_all_hint_costs()
-    name_costs    = get_all_name_reveal_costs()
     graph_data = {}
-    for team_name, subs in subs_by_team.items():
-        start_ms = _ts_to_ms(created.get(team_name) or subs[0]['captured_at'])
-        series = [{'x': start_ms, 'y': 0}]
+    for team_name, events in events_by_team.items():
+        events.sort(key=lambda e: e[0])
+        start_ts = created.get(team_name) or events[0][0]
+        series = [{'x': _ts_to_ms(start_ts), 'y': 0}]
         running_ids: set = set()
-        hcost = hint_costs.get(team_name, 0) + name_costs.get(team_name, 0)
-        for s in subs:
-            running_ids.add(s['flag_id'])
-            score = _calc_score(team_name, running_ids, capture_order, hcost)
-            series.append({'x': _ts_to_ms(s['captured_at']), 'y': score})
+        running_deduct = 0
+        for ts, kind, payload in events:
+            if kind == 'flag':
+                running_ids.add(payload)
+            else:
+                running_deduct += payload
+            score = _calc_score(team_name, running_ids, capture_order, running_deduct)
+            series.append({'x': _ts_to_ms(ts), 'y': score})
         graph_data[team_name] = series
 
     return render_template('scoreboard.html', board=board, flags=FLAGS,
