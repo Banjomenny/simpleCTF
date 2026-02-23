@@ -119,7 +119,7 @@
           {% if f.id in captured or f.id in revealed_names %}
             {{ f.name }}
           {% else %}
-            <span class="mono muted" style="letter-spacing:.08em;">???</span>
+            <span class="mono muted">Flag {{ loop.index }}</span>
             <form method="POST" action="/reveal-name" style="display:inline; margin-left:.5rem;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="flag_id" value="{{ f.id }}">
