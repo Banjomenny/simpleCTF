@@ -15,7 +15,7 @@ bankingai-ctf/
 │   │   └── src/      ← Web root (live-mounted into container)
 │   ├── db/           ← MySQL 8.0 init scripts
 │   │   ├── bankingai.sql       ← Clean MySQL 8.0 schema + seed data
-│   │   └── init_flags.sh       ← Injects FLAG_CREDENTIAL_HARVESTER into users table at DB init
+│   │   └── init_flags.sh       ← Injects FLAG_SQL_INJECTION into users table at DB init
 │   └── scripts/      ← Manual multi-team bash helpers
 └── manager/          ← Flask web app for team registration + instance management
     ├── docker-compose.yaml
@@ -73,21 +73,21 @@ The CTF is a PHP employee portal ("BankingAI Cloud") backed by MySQL. Only port 
 |---|---|
 | `FLAG_INSPECTED` | HTML comment in `products.php` (view source) |
 | `FLAG_LOGIN` | Shown on `dashboard.php` after login |
-| `FLAG_CREDENTIAL_HARVESTER` | Written as a `username` in the `users` DB table by `init_flags.sh` |
-| `FLAG_ADMIN_ACCESS` | Rendered in `admin_subnav.php` nav link |
+| `FLAG_SQL_INJECTION` | Written as a `username` in the `users` DB table by `init_flags.sh` |
+| `FLAG_USER_ESCALATION` | Rendered in `admin_subnav.php` nav link |
 | `FLAG_FILE_UPLOAD` | Written to `/flag.txt` at container start (via `web/Dockerfile` CMD) |
 
 **Intended exploit chain:**
 1. `robots.txt` → `/staff-resources/new-employee-guide.txt` → credentials `ajohnson:Staff@2024`
 2. Login → `dashboard.php` shows `FLAG_LOGIN`
-3. `lookup.php` SQL injection (unsanitised `WHERE full_name LIKE '%$search%'`) → dump `users` table → get `FLAG_CREDENTIAL_HARVESTER` and admin password hash
-4. Login as admin → `admin_subnav.php` shows `FLAG_ADMIN_ACCESS`
+3. `lookup.php` SQL injection (unsanitised `WHERE full_name LIKE '%$search%'`) → dump `users` table → get `FLAG_SQL_INJECTION` and admin password hash
+4. Login as admin → `admin_subnav.php` shows `FLAG_USER_ESCALATION`
 5. `admin_uploads.php` (no file type validation) → upload PHP webshell → execute → read `/flag.txt` = `FLAG_FILE_UPLOAD`
 6. `FLAG_INSPECTED` is in the HTML source of `products.php` (can be found at any point)
 
 ## Customising Flags
 
-Edit environment variables in `challenge/docker-compose.yaml` then rebuild. The `FLAG_CREDENTIAL_HARVESTER` value is picked up by `db/init_flags.sh` at DB initialisation — no SQL edits needed.
+Edit environment variables in `challenge/docker-compose.yaml` then rebuild. The `FLAG_SQL_INJECTION` value is picked up by `db/init_flags.sh` at DB initialisation — no SQL edits needed.
 
 ## Key Implementation Notes
 

@@ -91,12 +91,12 @@ web:
   environment:
     FLAG_LOGIN:        "CTF{your_flag}"
     FLAG_INSPECTED:    "CTF{your_flag}"
-    FLAG_ADMIN_ACCESS: "CTF{your_flag}"
+    FLAG_USER_ESCALATION: "CTF{your_flag}"
     FLAG_FILE_UPLOAD:  "CTF{your_flag}"
 
 db:
   environment:
-    FLAG_CREDENTIAL_HARVESTER: "CTF{your_flag}"
+    FLAG_SQL_INJECTION: "CTF{your_flag}"
 ```
 
 Then rebuild:

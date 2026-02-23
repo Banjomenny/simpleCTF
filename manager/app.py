@@ -8,8 +8,8 @@ Environment variables (set in manager/docker-compose.yaml):
   SECRET_KEY        — Flask session signing key
   PORT_RANGE_START  — first port to assign to teams (default 8000)
   HOST_IP           — IP / hostname shown to teams in their dashboard URL
-  FLAG_INSPECTED, FLAG_LOGIN, FLAG_CREDENTIAL_HARVESTER,
-  FLAG_ADMIN_ACCESS, FLAG_FILE_UPLOAD — correct flag values for submission scoring
+  FLAG_INSPECTED, FLAG_LOGIN, FLAG_SQL_INJECTION,
+  FLAG_USER_ESCALATION, FLAG_FILE_UPLOAD — correct flag values for submission scoring
 """
 
 import hashlib
@@ -82,8 +82,8 @@ FLAGS = [
     # Points reflect difficulty (75–200). fb_multiplier applied to first capture only.
     {'id': 'FLAG_INSPECTED',            'name': 'Inspect the Source',   'points':  75, 'fb_multiplier': 1.2},
     {'id': 'FLAG_LOGIN',                'name': 'Initial Access',        'points': 100, 'fb_multiplier': 1.2},
-    {'id': 'FLAG_CREDENTIAL_HARVESTER', 'name': 'SQL Injection',         'points': 150, 'fb_multiplier': 1.2},
-    {'id': 'FLAG_ADMIN_ACCESS',         'name': 'User Escalation',       'points': 125, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_SQL_INJECTION', 'name': 'SQL Injection',         'points': 150, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_USER_ESCALATION',         'name': 'User Escalation',       'points': 125, 'fb_multiplier': 1.2},
     {'id': 'FLAG_FILE_UPLOAD',          'name': 'File Upload RCE',       'points': 200, 'fb_multiplier': 1.2},
 ]
 # Base total (no first blood bonuses). MAX_POSSIBLE includes all first blood bonuses.
@@ -105,17 +105,17 @@ HINTS = [
      'text': "Check /robots.txt — then follow the disallowed path."},
     {'id':  5, 'flag_id': 'FLAG_LOGIN',                'order': 3, 'cost': 50,
      'text': "The staff resources directory contains an onboarding document with default credentials."},
-    # ── FLAG_CREDENTIAL_HARVESTER (SQL Injection) ───────────────────────────
-    {'id':  6, 'flag_id': 'FLAG_CREDENTIAL_HARVESTER', 'order': 1, 'cost': 20,
+    # ── FLAG_SQL_INJECTION (SQL Injection) ───────────────────────────
+    {'id':  6, 'flag_id': 'FLAG_SQL_INJECTION', 'order': 1, 'cost': 20,
      'text': "After login, one page lets you search for staff. Does it sanitise input?"},
-    {'id':  7, 'flag_id': 'FLAG_CREDENTIAL_HARVESTER', 'order': 2, 'cost': 45,
+    {'id':  7, 'flag_id': 'FLAG_SQL_INJECTION', 'order': 2, 'cost': 45,
      'text': "The lookup page builds a SQL LIKE query directly from the search field — no sanitisation."},
-    {'id':  8, 'flag_id': 'FLAG_CREDENTIAL_HARVESTER', 'order': 3, 'cost': 70,
+    {'id':  8, 'flag_id': 'FLAG_SQL_INJECTION', 'order': 3, 'cost': 70,
      'text': "Try a UNION SELECT to dump the users table: ' UNION SELECT username,password,3,4,5 FROM users-- -"},
-    # ── FLAG_ADMIN_ACCESS (User Escalation) ────────────────────────────────
-    {'id':  9, 'flag_id': 'FLAG_ADMIN_ACCESS',         'order': 1, 'cost': 20,
+    # ── FLAG_USER_ESCALATION (User Escalation) ────────────────────────────────
+    {'id':  9, 'flag_id': 'FLAG_USER_ESCALATION',         'order': 1, 'cost': 20,
      'text': "The users table contains credentials for other accounts, not just employees."},
-    {'id': 10, 'flag_id': 'FLAG_ADMIN_ACCESS',         'order': 2, 'cost': 45,
+    {'id': 10, 'flag_id': 'FLAG_USER_ESCALATION',         'order': 2, 'cost': 45,
      'text': "The password column is unsalted MD5. Crack it with rockyou.txt."},
     # ── FLAG_FILE_UPLOAD ────────────────────────────────────────────────────
     {'id': 11, 'flag_id': 'FLAG_FILE_UPLOAD',          'order': 1, 'cost': 25,

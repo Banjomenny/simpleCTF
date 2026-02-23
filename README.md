@@ -406,14 +406,14 @@ bankingai-ctf/
 │   │       ├── dashboard.php            ← shows FLAG_LOGIN after login
 │   │       ├── products.php             ← FLAG_INSPECTED in HTML comment
 │   │       ├── admin_uploads.php        ← unrestricted upload (intentional)
-│   │       ├── admin_subnav.php         ← shows FLAG_ADMIN_ACCESS
+│   │       ├── admin_subnav.php         ← shows FLAG_USER_ESCALATION
 │   │       ├── robots.txt               ← hints at credential location
 │   │       └── staff-resources/
 │   │           └── new-employee-guide.txt  ← contains login credentials
 │   │
 │   ├── db/
 │   │   ├── bankingai.sql                ← MySQL 8.0 schema + seed data
-│   │   └── init_flags.sh                ← injects FLAG_CREDENTIAL_HARVESTER
+│   │   └── init_flags.sh                ← injects FLAG_SQL_INJECTION
 │   │
 │   └── scripts/                         ← manual multi-team bash helpers
 │       ├── add_team.sh

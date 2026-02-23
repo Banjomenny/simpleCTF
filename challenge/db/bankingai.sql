@@ -94,4 +94,4 @@ INSERT INTO `users` VALUES
   (18, 'rgreen',    'ec8c4469eec52240122d1e79b3bf5daf', 'user'),
   (19, 'sturner',   '742fc660f987728316da93a61e1c409a', 'user'),
   (20, 'thughes',   'f549cd73f694aa6f5541b4ae30894eea', 'user'),
-  (22, 'FLAG_CREDENTIAL_HARVESTER_PLACEHOLDER', 'eb023a096ec66b1a04f75baa2c104b4e', 'user');
+  (22, 'FLAG_SQL_INJECTION_PLACEHOLDER', 'eb023a096ec66b1a04f75baa2c104b4e', 'user');
