@@ -82,13 +82,49 @@ FLAGS = [
     # Points reflect difficulty (75–200). fb_multiplier applied to first capture only.
     {'id': 'FLAG_INSPECTED',            'name': 'Inspect the Source',   'points':  75, 'fb_multiplier': 1.2},
     {'id': 'FLAG_LOGIN',                'name': 'Initial Access',        'points': 100, 'fb_multiplier': 1.2},
-    {'id': 'FLAG_CREDENTIAL_HARVESTER', 'name': 'Credential Harvester',  'points': 150, 'fb_multiplier': 1.2},
-    {'id': 'FLAG_ADMIN_ACCESS',         'name': 'Admin Access',          'points': 125, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_CREDENTIAL_HARVESTER', 'name': 'SQL Injection',         'points': 150, 'fb_multiplier': 1.2},
+    {'id': 'FLAG_ADMIN_ACCESS',         'name': 'User Escalation',       'points': 125, 'fb_multiplier': 1.2},
     {'id': 'FLAG_FILE_UPLOAD',          'name': 'File Upload RCE',       'points': 200, 'fb_multiplier': 1.2},
 ]
 # Base total (no first blood bonuses). MAX_POSSIBLE includes all first blood bonuses.
 MAX_SCORE    = sum(f['points'] for f in FLAGS)
 MAX_POSSIBLE = sum(int(f['points'] * f['fb_multiplier']) for f in FLAGS)
+
+# Hints — sequential per flag (order N requires order N-1 purchased first).
+# cost is deducted from the team's score when purchased.
+HINTS = [
+    # ── FLAG_INSPECTED ──────────────────────────────────────────────────────
+    {'id':  1, 'flag_id': 'FLAG_INSPECTED',            'order': 1, 'cost': 10,
+     'text': "Something is hidden in plain sight on one of the public pages."},
+    {'id':  2, 'flag_id': 'FLAG_INSPECTED',            'order': 2, 'cost': 25,
+     'text': "View the HTML source of the Products page (Ctrl+U)."},
+    # ── FLAG_LOGIN ──────────────────────────────────────────────────────────
+    {'id':  3, 'flag_id': 'FLAG_LOGIN',                'order': 1, 'cost': 15,
+     'text': "Web servers often tell crawlers which paths to avoid. Have you checked?"},
+    {'id':  4, 'flag_id': 'FLAG_LOGIN',                'order': 2, 'cost': 30,
+     'text': "Check /robots.txt — then follow the disallowed path."},
+    {'id':  5, 'flag_id': 'FLAG_LOGIN',                'order': 3, 'cost': 50,
+     'text': "The staff resources directory contains an onboarding document with default credentials."},
+    # ── FLAG_CREDENTIAL_HARVESTER (SQL Injection) ───────────────────────────
+    {'id':  6, 'flag_id': 'FLAG_CREDENTIAL_HARVESTER', 'order': 1, 'cost': 20,
+     'text': "After login, one page lets you search for staff. Does it sanitise input?"},
+    {'id':  7, 'flag_id': 'FLAG_CREDENTIAL_HARVESTER', 'order': 2, 'cost': 45,
+     'text': "The lookup page builds a SQL LIKE query directly from the search field — no sanitisation."},
+    {'id':  8, 'flag_id': 'FLAG_CREDENTIAL_HARVESTER', 'order': 3, 'cost': 70,
+     'text': "Try a UNION SELECT to dump the users table: ' UNION SELECT username,password,3,4,5 FROM users-- -"},
+    # ── FLAG_ADMIN_ACCESS (User Escalation) ────────────────────────────────
+    {'id':  9, 'flag_id': 'FLAG_ADMIN_ACCESS',         'order': 1, 'cost': 20,
+     'text': "The users table contains credentials for other accounts, not just employees."},
+    {'id': 10, 'flag_id': 'FLAG_ADMIN_ACCESS',         'order': 2, 'cost': 45,
+     'text': "The password column is unsalted MD5. Crack it with rockyou.txt."},
+    # ── FLAG_FILE_UPLOAD ────────────────────────────────────────────────────
+    {'id': 11, 'flag_id': 'FLAG_FILE_UPLOAD',          'order': 1, 'cost': 25,
+     'text': "The admin panel has a file management section. Does it validate what you upload?"},
+    {'id': 12, 'flag_id': 'FLAG_FILE_UPLOAD',          'order': 2, 'cost': 55,
+     'text': "The upload feature accepts any file type. A PHP script will execute on the server."},
+    {'id': 13, 'flag_id': 'FLAG_FILE_UPLOAD',          'order': 3, 'cost': 80,
+     'text': "Uploaded files are served from /uploads/. A PHP webshell with ?cmd=cat+/flag.txt will read the flag."},
+]
 
 
 def _team_flag(flag_id: str, team_name: str) -> str:
@@ -128,6 +164,15 @@ def init_db():
                 flag_id      TEXT NOT NULL,
                 captured_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(team_name, flag_id)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS hint_purchases (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_name    TEXT NOT NULL,
+                hint_id      INTEGER NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(team_name, hint_id)
             )
         """)
         conn.commit()
@@ -206,8 +251,35 @@ def get_first_bloods() -> dict:
     return seen
 
 
-def _calc_score(team_name: str, flag_ids: set, first_bloods: dict) -> int:
-    """Sum points for captured flags, applying first-blood multiplier where earned."""
+def get_purchased_hints(team_name: str) -> set:
+    """Return the set of hint IDs already purchased by this team."""
+    with get_db() as db:
+        rows = db.execute(
+            'SELECT hint_id FROM hint_purchases WHERE team_name = ?', (team_name,)
+        ).fetchall()
+    return {r['hint_id'] for r in rows}
+
+
+def get_hint_cost(team_name: str) -> int:
+    """Total points deducted for hints purchased by this team."""
+    purchased = get_purchased_hints(team_name)
+    return sum(h['cost'] for h in HINTS if h['id'] in purchased)
+
+
+def get_all_hint_costs() -> dict:
+    """Return {team_name: total_hint_cost} for all teams (single query)."""
+    with get_db() as db:
+        rows = db.execute('SELECT team_name, hint_id FROM hint_purchases').fetchall()
+    costs: dict = defaultdict(int)
+    hint_map = {h['id']: h['cost'] for h in HINTS}
+    for r in rows:
+        costs[r['team_name']] += hint_map.get(r['hint_id'], 0)
+    return dict(costs)
+
+
+def _calc_score(team_name: str, flag_ids: set, first_bloods: dict, hint_cost: int = 0) -> int:
+    """Sum points for captured flags, applying first-blood multiplier where earned,
+    then subtracting any hint costs. Score floor is 0."""
     score = 0
     for f in FLAGS:
         if f['id'] in flag_ids:
@@ -215,12 +287,13 @@ def _calc_score(team_name: str, flag_ids: set, first_bloods: dict) -> int:
             if first_bloods.get(f['id']) == team_name:
                 pts = int(pts * f['fb_multiplier'])
             score += pts
-    return score
+    return max(0, score - hint_cost)
 
 
 def get_scoreboard() -> list:
     """Return all teams ranked by score desc, last capture asc."""
     first_bloods = get_first_bloods()
+    hint_costs   = get_all_hint_costs()
     with get_db() as db:
         team_rows = db.execute('SELECT name, status FROM teams ORDER BY name').fetchall()
         sub_rows  = db.execute(
@@ -236,7 +309,8 @@ def get_scoreboard() -> list:
         team_subs    = subs[t['name']]
         flag_ids     = {s['flag_id'] for s in team_subs}
         last_cap_utc = max((s['captured_at'] for s in team_subs), default=None)
-        score        = _calc_score(t['name'], flag_ids, first_bloods)
+        hcost        = hint_costs.get(t['name'], 0)
+        score        = _calc_score(t['name'], flag_ids, first_bloods, hcost)
         fb_flags     = {fid for fid, tname in first_bloods.items() if tname == t['name']}
         board.append({
             'name':         t['name'],
@@ -460,7 +534,8 @@ def dashboard():
     first_bloods = get_first_bloods()
     captured     = get_team_submissions(session['team'])
     fb_flags     = {fid for fid, tname in first_bloods.items() if tname == session['team']}
-    score        = _calc_score(session['team'], captured, first_bloods)
+    hcost        = get_hint_cost(session['team'])
+    score        = _calc_score(session['team'], captured, first_bloods, hcost)
     instance_url = f'http://{HOST_IP}:{team["port"]}'
     return render_template('dashboard.html',
                            team=team,
@@ -469,6 +544,7 @@ def dashboard():
                            captured=captured,
                            fb_flags=fb_flags,
                            score=score,
+                           hint_cost=hcost,
                            max_score=MAX_SCORE)
 
 
@@ -506,6 +582,77 @@ def submit_flag():
     else:
         flash(f'Correct! "{matched_flag["name"]}" captured — +{pts} pts', 'success')
     return redirect(url_for('dashboard'))
+
+
+@app.route('/hints')
+@login_required
+def hints():
+    team_name = session['team']
+    purchased = get_purchased_hints(team_name)
+    total_cost = sum(h['cost'] for h in HINTS if h['id'] in purchased)
+
+    # Build per-flag hint lists, gating later hints behind earlier purchases
+    flag_hints: dict = {}
+    for flag in FLAGS:
+        fid = flag['id']
+        ordered = sorted([h for h in HINTS if h['flag_id'] == fid], key=lambda h: h['order'])
+        visible = []
+        for h in ordered:
+            # Always show hint 1; show hint N only if hint N-1 is purchased
+            if h['order'] == 1 or any(
+                prev['id'] in purchased
+                for prev in ordered if prev['order'] == h['order'] - 1
+            ):
+                visible.append(h)
+        flag_hints[fid] = visible
+
+    return render_template('hints.html',
+                           flags=FLAGS,
+                           flag_hints=flag_hints,
+                           purchased=purchased,
+                           total_cost=total_cost)
+
+
+@app.route('/hints/buy', methods=['POST'])
+@login_required
+@limiter.limit("30 per minute")
+def buy_hint():
+    team_name = session['team']
+    try:
+        hint_id = int(request.form.get('hint_id', 0))
+    except (ValueError, TypeError):
+        flash('Invalid hint.', 'error')
+        return redirect(url_for('hints'))
+
+    hint = next((h for h in HINTS if h['id'] == hint_id), None)
+    if not hint:
+        flash('Invalid hint.', 'error')
+        return redirect(url_for('hints'))
+
+    # Enforce sequential unlock: must own previous hint first
+    if hint['order'] > 1:
+        ordered = sorted(
+            [h for h in HINTS if h['flag_id'] == hint['flag_id']],
+            key=lambda h: h['order']
+        )
+        prev = next((h for h in ordered if h['order'] == hint['order'] - 1), None)
+        if prev:
+            purchased = get_purchased_hints(team_name)
+            if prev['id'] not in purchased:
+                flash('Unlock the previous hint first.', 'error')
+                return redirect(url_for('hints'))
+
+    try:
+        with get_db() as db:
+            db.execute(
+                'INSERT INTO hint_purchases (team_name, hint_id) VALUES (?, ?)',
+                (team_name, hint_id)
+            )
+            db.commit()
+        flash(f'Hint unlocked — -{hint["cost"]} pts applied to your score.', 'info')
+    except sqlite3.IntegrityError:
+        flash('Already purchased.', 'info')
+    return redirect(url_for('hints'))
 
 
 @app.route('/scoreboard')
@@ -569,9 +716,11 @@ def admin_logout():
 def admin():
     teams        = get_all_teams()
     first_bloods = get_first_bloods()
+    hint_costs   = get_all_hint_costs()
     for t in teams:
         captured      = get_team_submissions(t['name'])
-        t['score']    = _calc_score(t['name'], captured, first_bloods)
+        hcost         = hint_costs.get(t['name'], 0)
+        t['score']    = _calc_score(t['name'], captured, first_bloods, hcost)
         t['captures'] = len(captured)
     return render_template('admin.html', teams=teams, max_score=MAX_SCORE)
 

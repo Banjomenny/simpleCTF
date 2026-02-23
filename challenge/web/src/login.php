@@ -48,6 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <h2>Employee Login</h2>
 
+<div class="card fade-in" style="margin-bottom:1rem;padding:.75rem 1rem;">
+  <strong>New staff?</strong> Your account has been created. Username format:
+  <code>firstinitiallastname</code>.
+  Contact HR if you haven't received your password.
+</div>
+
 <?php if (isset($error)) echo "<p class='error'>$error</p>"; ?>
 
 <form method="post">

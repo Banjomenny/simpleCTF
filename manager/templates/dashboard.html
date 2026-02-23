@@ -50,6 +50,7 @@
 {% endblock %}
 
 {% block nav %}
+  <a href="/hints">Hints</a>
   <span class="nav-chip">{{ team.name }}</span>
   <form method="POST" action="/logout">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -82,6 +83,9 @@
     <h3 style="margin-bottom:.4rem;">Score</h3>
     <span class="score-num">{{ score }}</span>
     <span class="score-denom">/ {{ max_score }} pts</span>
+    {% if hint_cost > 0 %}
+      <span class="score-denom" style="color:var(--amber);margin-left:.5rem;">(-{{ hint_cost }} hints)</span>
+    {% endif %}
     <div class="score-bar">
       <div class="score-fill" style="width:{{ ((score / max_score * 100)|int) if max_score else 0 }}%;"></div>
     </div>

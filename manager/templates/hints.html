@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Hints{% endblock %}
+{% block max_width %}640px{% endblock %}
+
+{% block head_extra %}
+<style>
+  .hint-group { margin-bottom: 2rem; }
+  .hint-group h2 { margin-bottom: .75rem; }
+
+  .hint-card {
+    background: var(--surf2);
+    border: 1px solid var(--bdr);
+    padding: .9rem 1.1rem;
+    margin-bottom: .5rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .hint-card.purchased { border-color: var(--amber); }
+  .hint-card.locked    { opacity: .45; }
+
+  .hint-text { font-size: .92rem; line-height: 1.5; flex: 1; }
+  .hint-text.redacted {
+    filter: blur(4px);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .hint-cost {
+    font-family: var(--mono);
+    font-size: .78rem;
+    white-space: nowrap;
+  }
+  .hint-cost.deducted { color: var(--amber); }
+  .hint-cost.pending  { color: var(--red); }
+
+  .hint-btn {
+    margin-top: 0;
+    width: auto;
+    padding: .3rem .85rem;
+    font-size: .7rem;
+    letter-spacing: .08em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .hint-btn.locked-btn {
+    color: var(--muted);
+    border-color: var(--bdr2);
+    pointer-events: none;
+    opacity: .5;
+  }
+
+  .total-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .6rem .85rem;
+    background: var(--surf);
+    border: 1px solid var(--bdr);
+    margin-bottom: 2rem;
+    font-size: .85rem;
+  }
+  .total-bar strong { font-family: var(--mono); color: var(--amber); }
+</style>
+{% endblock %}
+
+{% block nav %}
+  <a href="/dashboard">Dashboard</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1 style="margin-bottom:.3rem;">Hints</h1>
+  <p class="muted" style="font-size:.85rem;margin-bottom:1.5rem;">
+    Hints deduct points from your score. Cheaper hints come first — unlock in order.
+  </p>
+
+  {% if total_cost > 0 %}
+  <div class="total-bar">
+    <span>Total hint penalty</span>
+    <strong>-{{ total_cost }} pts</strong>
+  </div>
+  {% endif %}
+
+  {% for flag in flags %}
+  {% set fid = flag.id %}
+  {% set visible = flag_hints[fid] %}
+  {% if visible %}
+  <div class="hint-group">
+    <h2>{{ flag.name }}
+      <span class="muted" style="font-size:.65em;font-family:var(--mono);font-weight:400;">
+        {{ flag.points }} pts
+      </span>
+    </h2>
+
+    {% for hint in visible %}
+    {% set is_purchased = hint.id in purchased %}
+    <div class="hint-card {% if is_purchased %}purchased{% endif %}">
+      <span class="hint-text {% if not is_purchased %}redacted{% endif %}">
+        {% if is_purchased %}
+          {{ hint.text }}
+        {% else %}
+          {{ hint.text }}  {# blurred by CSS #}
+        {% endif %}
+      </span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;">
+        <span class="hint-cost {% if is_purchased %}deducted{% else %}pending{% endif %}">
+          {% if is_purchased %}-{% endif %}{{ hint.cost }} pts
+        </span>
+        {% if is_purchased %}
+          <span class="badge ready" style="font-size:.6rem;">unlocked</span>
+        {% else %}
+          <form method="POST" action="/hints/buy" class="action-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="hint_id" value="{{ hint.id }}">
+            <button type="submit" class="hint-btn"
+              onclick="return confirm('Buy this hint for {{ hint.cost }} pts?')">
+              Buy hint
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
