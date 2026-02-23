@@ -8,7 +8,11 @@
 {% endblock %}
 
 {% block nav %}
-  <a href="/">Register / Login</a>
+  {% if session.get('team') %}
+    <a href="/dashboard">Dashboard</a>
+  {% else %}
+    <a href="/">Register / Login</a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
