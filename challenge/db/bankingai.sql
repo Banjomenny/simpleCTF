@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 -- Passwords are MD5 hashed. ajohnson = Staff@2024
 INSERT INTO `users` VALUES
-  (1,  'ajohnson',  'db118fe2a788b4e0ae5fa23a6e0418af', 'user'),
+  (1,  'ajohnson',  'c02c8de4ecc50f3f2a4d9039ddc4f072', 'user'),
   (2,  'blee',      '3fc0a7acf087f549ac2b266baf94b8b1', 'user'),
   (3,  'csmith',    '0d107d09f5bbe40cade3de5c71e9e9b7', 'user'),
   (4,  'dpatel',    'b11d49f3630e78c3ab484e3c311963e7', 'user'),
