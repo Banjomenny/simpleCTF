@@ -84,7 +84,7 @@
     <span class="score-num">{{ score }}</span>
     <span class="score-denom">/ {{ max_score }} pts</span>
     {% if hint_cost > 0 %}
-      <span class="score-denom" style="color:var(--amber);margin-left:.5rem;">(-{{ hint_cost }} hints)</span>
+      <span class="score-denom" style="color:var(--amber);margin-left:.5rem;">(-{{ hint_cost }} deductions)</span>
     {% endif %}
     <div class="score-bar">
       <div class="score-fill" style="width:{{ ((score / max_score * 100)|int) if max_score else 0 }}%;"></div>
@@ -113,20 +113,42 @@
     </thead>
     <tbody>
       {% for f in flags %}
-      <tr class="{% if f.id in captured %}{% if f.id in fb_flags %}flag-row-blood{% else %}flag-row-done{% endif %}{% else %}flag-row-open{% endif %}">
-        <td>{{ f.name }}</td>
+      {% set pos = flag_pos.get(f.id) %}
+      <tr class="{% if f.id in captured %}{% if pos == 1 %}flag-row-blood{% else %}flag-row-done{% endif %}{% else %}flag-row-open{% endif %}">
+        <td>
+          {% if f.id in captured or f.id in revealed_names %}
+            {{ f.name }}
+          {% else %}
+            <span class="mono muted" style="letter-spacing:.08em;">???</span>
+            <form method="POST" action="/reveal-name" style="display:inline; margin-left:.5rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="flag_id" value="{{ f.id }}">
+              <button type="submit" style="font-size:.7rem; padding:.15rem .5rem; width:auto; background:transparent; border:1px solid var(--bdr2); color:var(--muted);">Reveal ({{ flag_name_cost }}pts)</button>
+            </form>
+          {% endif %}
+        </td>
         <td class="mono muted">
-          {{ f.points }}
-          {% if f.id in captured and f.id in fb_flags %}
-            <span style="color:var(--red);font-size:.7rem;margin-left:.2rem;">
-              +{{ (f.points * f.fb_multiplier)|int - f.points }}FB
-            </span>
+          {% if f.id in captured %}
+            {{ flag_pts[f.id] }}
+            {% if pos == 1 %}
+              <span style="color:var(--red);font-size:.7rem;margin-left:.2rem;">FB</span>
+            {% elif pos == 2 or pos == 3 %}
+              <span style="color:var(--amber);font-size:.7rem;margin-left:.2rem;">#{{ pos }}</span>
+            {% else %}
+              <span style="color:var(--muted);font-size:.7rem;margin-left:.2rem;">#{{ pos }}</span>
+            {% endif %}
+          {% else %}
+            {{ f.points }}
           {% endif %}
         </td>
         <td>
           {% if f.id in captured %}
-            {% if f.id in fb_flags %}
+            {% if pos == 1 %}
               <span class="badge" style="background:rgba(255,61,82,.1);border:1px solid var(--red);color:var(--red);">&#9632; first blood</span>
+            {% elif pos == 2 %}
+              <span class="badge" style="background:rgba(255,170,0,.1);border:1px solid var(--amber);color:var(--amber);">&#10003; 2nd</span>
+            {% elif pos == 3 %}
+              <span class="badge" style="background:rgba(255,170,0,.08);border:1px solid var(--amber);color:var(--amber);">&#10003; 3rd</span>
             {% else %}
               <span class="badge ready">&#10003; captured</span>
             {% endif %}

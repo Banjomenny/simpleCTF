@@ -90,6 +90,9 @@ FLAGS = [
 MAX_SCORE    = sum(f['points'] for f in FLAGS)
 MAX_POSSIBLE = sum(int(f['points'] * f['fb_multiplier']) for f in FLAGS)
 
+# Cost to reveal a flag's challenge name on the dashboard
+FLAG_NAME_COST = 5
+
 # Hints — sequential per flag (order N requires order N-1 purchased first).
 # cost is deducted from the team's score when purchased.
 HINTS = [
@@ -175,6 +178,15 @@ def init_db():
                 UNIQUE(team_name, hint_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS name_purchases (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_name    TEXT NOT NULL,
+                flag_id      TEXT NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(team_name, flag_id)
+            )
+        """)
         conn.commit()
 
 
@@ -238,17 +250,34 @@ def record_submission(team_name: str, flag_id: str) -> bool:
         return False
 
 
-def get_first_bloods() -> dict:
-    """Return {flag_id: team_name} for the first capture of each flag."""
+def get_capture_order() -> dict:
+    """Return {flag_id: [team_name, ...]} ordered by capture time (earliest first)."""
     with get_db() as db:
         rows = db.execute(
-            'SELECT flag_id, team_name FROM submissions ORDER BY id'
+            'SELECT flag_id, team_name FROM submissions ORDER BY captured_at, id'
         ).fetchall()
-    seen: dict = {}
+    order: dict = defaultdict(list)
     for r in rows:
-        if r['flag_id'] not in seen:
-            seen[r['flag_id']] = r['team_name']
-    return seen
+        order[r['flag_id']].append(r['team_name'])
+    return dict(order)
+
+
+def get_revealed_names(team_name: str) -> set:
+    """Return the set of flag IDs whose names have been purchased by this team."""
+    with get_db() as db:
+        rows = db.execute(
+            'SELECT flag_id FROM name_purchases WHERE team_name = ?', (team_name,)
+        ).fetchall()
+    return {r['flag_id'] for r in rows}
+
+
+def get_all_name_reveal_costs() -> dict:
+    """Return {team_name: total_name_reveal_cost} for all teams (single query)."""
+    with get_db() as db:
+        rows = db.execute(
+            'SELECT team_name, COUNT(*) as cnt FROM name_purchases GROUP BY team_name'
+        ).fetchall()
+    return {r['team_name']: r['cnt'] * FLAG_NAME_COST for r in rows}
 
 
 def get_purchased_hints(team_name: str) -> set:
@@ -277,23 +306,36 @@ def get_all_hint_costs() -> dict:
     return dict(costs)
 
 
-def _calc_score(team_name: str, flag_ids: set, first_bloods: dict, hint_cost: int = 0) -> int:
-    """Sum points for captured flags, applying first-blood multiplier where earned,
-    then subtracting any hint costs. Score floor is 0."""
+def _flag_points(base: int, fb_mult: float, position: int) -> int:
+    """Points for capturing a flag at a given position (1-indexed).
+    1st  : first blood  — base * fb_mult
+    2nd–3rd: full base points
+    4th+ : base − (position − 3), floor 1
+    """
+    if position == 1:
+        return int(base * fb_mult)
+    if position <= 3:
+        return base
+    return max(1, base - (position - 3))
+
+
+def _calc_score(team_name: str, flag_ids: set, capture_order: dict, hint_cost: int = 0) -> int:
+    """Sum positional points for captured flags, subtract hint and name-reveal costs.
+    Score floor is 0."""
     score = 0
     for f in FLAGS:
         if f['id'] in flag_ids:
-            pts = f['points']
-            if first_bloods.get(f['id']) == team_name:
-                pts = int(pts * f['fb_multiplier'])
-            score += pts
+            order    = capture_order.get(f['id'], [])
+            position = order.index(team_name) + 1 if team_name in order else len(order) + 1
+            score   += _flag_points(f['points'], f['fb_multiplier'], position)
     return max(0, score - hint_cost)
 
 
 def get_scoreboard() -> list:
     """Return all teams ranked by score desc, last capture asc."""
-    first_bloods = get_first_bloods()
-    hint_costs   = get_all_hint_costs()
+    capture_order = get_capture_order()
+    hint_costs    = get_all_hint_costs()
+    name_costs    = get_all_name_reveal_costs()
     with get_db() as db:
         team_rows = db.execute('SELECT name, status FROM teams ORDER BY name').fetchall()
         sub_rows  = db.execute(
@@ -309,17 +351,22 @@ def get_scoreboard() -> list:
         team_subs    = subs[t['name']]
         flag_ids     = {s['flag_id'] for s in team_subs}
         last_cap_utc = max((s['captured_at'] for s in team_subs), default=None)
-        hcost        = hint_costs.get(t['name'], 0)
-        score        = _calc_score(t['name'], flag_ids, first_bloods, hcost)
-        fb_flags     = {fid for fid, tname in first_bloods.items() if tname == t['name']}
+        hcost        = hint_costs.get(t['name'], 0) + name_costs.get(t['name'], 0)
+        score        = _calc_score(t['name'], flag_ids, capture_order, hcost)
+        # Position per flag (1-indexed)
+        flag_positions = {
+            fid: capture_order[fid].index(t['name']) + 1
+            for fid in flag_ids
+            if t['name'] in capture_order.get(fid, [])
+        }
         board.append({
             'name':         t['name'],
             'status':       t['status'],
             'score':        score,
-            'flag_ids':     flag_ids,
-            'fb_flags':     fb_flags,
-            'last_capture': _ts_to_est(last_cap_utc) if last_cap_utc else None,
-            '_sort_key':    last_cap_utc or '9999-99-99',
+            'flag_ids':      flag_ids,
+            'flag_positions': flag_positions,
+            'last_capture':  _ts_to_est(last_cap_utc) if last_cap_utc else None,
+            '_sort_key':     last_cap_utc or '9999-99-99',
         })
 
     board.sort(key=lambda r: (-r['score'], r['_sort_key']))
@@ -531,20 +578,34 @@ def dashboard():
     if not team:
         session.clear()
         return redirect(url_for('index'))
-    first_bloods = get_first_bloods()
-    captured     = get_team_submissions(session['team'])
-    fb_flags     = {fid for fid, tname in first_bloods.items() if tname == session['team']}
-    hcost        = get_hint_cost(session['team'])
-    score        = _calc_score(session['team'], captured, first_bloods, hcost)
+    capture_order  = get_capture_order()
+    captured       = get_team_submissions(session['team'])
+    hcost          = get_hint_cost(session['team'])
+    name_cost      = len(get_revealed_names(session['team'])) * FLAG_NAME_COST
+    total_deduct   = hcost + name_cost
+    score          = _calc_score(session['team'], captured, capture_order, total_deduct)
+    revealed_names = get_revealed_names(session['team'])
+    # Per-flag position and points earned
+    flag_pos = {}
+    flag_pts = {}
+    for f in FLAGS:
+        if f['id'] in captured:
+            order = capture_order.get(f['id'], [])
+            pos   = order.index(session['team']) + 1 if session['team'] in order else len(order) + 1
+            flag_pos[f['id']] = pos
+            flag_pts[f['id']] = _flag_points(f['points'], f['fb_multiplier'], pos)
     instance_url = f'http://{HOST_IP}:{team["port"]}'
     return render_template('dashboard.html',
                            team=team,
                            instance_url=instance_url,
                            flags=FLAGS,
                            captured=captured,
-                           fb_flags=fb_flags,
+                           flag_pos=flag_pos,
+                           flag_pts=flag_pts,
+                           revealed_names=revealed_names,
+                           flag_name_cost=FLAG_NAME_COST,
                            score=score,
-                           hint_cost=hcost,
+                           hint_cost=total_deduct,
                            max_score=MAX_SCORE)
 
 
@@ -569,18 +630,17 @@ def submit_flag():
         flash('You already captured that flag!', 'info')
         return redirect(url_for('dashboard'))
 
-    first_bloods   = get_first_bloods()
-    is_first_blood = matched_flag['id'] not in first_bloods
     record_submission(team_name, matched_flag['id'])
+    capture_order = get_capture_order()
+    order    = capture_order.get(matched_flag['id'], [])
+    position = order.index(team_name) + 1 if team_name in order else len(order) + 1
+    pts      = _flag_points(matched_flag['points'], matched_flag['fb_multiplier'], position)
 
-    pts = int(matched_flag['points'] * matched_flag['fb_multiplier']) if is_first_blood \
-          else matched_flag['points']
-
-    if is_first_blood:
+    if position == 1:
         flash(f'FIRST BLOOD! "{matched_flag["name"]}" — +{pts} pts '
-              f'({matched_flag["points"]} x {matched_flag["fb_multiplier"]})', 'success')
+              f'({matched_flag["points"]} × {matched_flag["fb_multiplier"]})', 'success')
     else:
-        flash(f'Correct! "{matched_flag["name"]}" captured — +{pts} pts', 'success')
+        flash(f'Correct! "{matched_flag["name"]}" captured — +{pts} pts (#{position})', 'success')
     return redirect(url_for('dashboard'))
 
 
@@ -663,6 +723,32 @@ def buy_hint():
     return redirect(url_for('hints'))
 
 
+@app.route('/reveal-name', methods=['POST'])
+@login_required
+@limiter.limit("20 per minute")
+def reveal_name():
+    team_name = session['team']
+    if not get_team_by_name(team_name):
+        session.clear()
+        flash('Team not found. Please log in again.', 'error')
+        return redirect(url_for('index'))
+    flag_id = request.form.get('flag_id', '').strip()
+    if not any(f['id'] == flag_id for f in FLAGS):
+        flash('Invalid flag.', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        with get_db() as db:
+            db.execute(
+                'INSERT INTO name_purchases (team_name, flag_id) VALUES (?, ?)',
+                (team_name, flag_id)
+            )
+            db.commit()
+        flash(f'Challenge name revealed — -{FLAG_NAME_COST} pts applied.', 'info')
+    except sqlite3.IntegrityError:
+        flash('Already revealed.', 'info')
+    return redirect(url_for('dashboard'))
+
+
 @app.route('/scoreboard')
 def scoreboard():
     board = get_scoreboard()
@@ -679,15 +765,18 @@ def scoreboard():
     for s in sub_rows:
         subs_by_team[s['team_name']].append(s)
 
-    first_bloods = get_first_bloods()
+    capture_order = get_capture_order()
+    hint_costs    = get_all_hint_costs()
+    name_costs    = get_all_name_reveal_costs()
     graph_data = {}
     for team_name, subs in subs_by_team.items():
         start_ms = _ts_to_ms(created.get(team_name) or subs[0]['captured_at'])
         series = [{'x': start_ms, 'y': 0}]
         running_ids: set = set()
+        hcost = hint_costs.get(team_name, 0) + name_costs.get(team_name, 0)
         for s in subs:
             running_ids.add(s['flag_id'])
-            score = _calc_score(team_name, running_ids, first_bloods)
+            score = _calc_score(team_name, running_ids, capture_order, hcost)
             series.append({'x': _ts_to_ms(s['captured_at']), 'y': score})
         graph_data[team_name] = series
 
@@ -722,13 +811,14 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin():
-    teams        = get_all_teams()
-    first_bloods = get_first_bloods()
-    hint_costs   = get_all_hint_costs()
+    teams         = get_all_teams()
+    capture_order = get_capture_order()
+    hint_costs    = get_all_hint_costs()
+    name_costs    = get_all_name_reveal_costs()
     for t in teams:
         captured      = get_team_submissions(t['name'])
-        hcost         = hint_costs.get(t['name'], 0)
-        t['score']    = _calc_score(t['name'], captured, first_bloods, hcost)
+        hcost         = hint_costs.get(t['name'], 0) + name_costs.get(t['name'], 0)
+        t['score']    = _calc_score(t['name'], captured, capture_order, hcost)
         t['captures'] = len(captured)
     return render_template('admin.html', teams=teams, max_score=MAX_SCORE)
 
