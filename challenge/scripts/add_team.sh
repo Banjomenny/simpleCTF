@@ -79,19 +79,29 @@ if ! command -v python3 &>/dev/null || ! python3 -c "import bcrypt" 2>/dev/null;
     exit 0
 fi
 
-if ! command -v sqlite3 &>/dev/null; then
-    echo ""
-    echo "  Warning: sqlite3 not found — skipping manager registration."
-    exit 0
-fi
+# Hash password and insert into DB using Python's built-in sqlite3 module
+# (avoids requiring the sqlite3 CLI binary)
+BCRYPT_PW="$TEAM_PASSWORD" \
+MANAGER_DB="$MANAGER_DB" \
+TEAM_NAME="$TEAM" \
+TEAM_PORT="$PORT" \
+python3 - <<'PYEOF'
+import bcrypt, os, sqlite3
 
-# Hash password via bcrypt (use env var to avoid shell quoting issues)
-PW_HASH="$(BCRYPT_PW="$TEAM_PASSWORD" python3 -c \
-    "import bcrypt, os; print(bcrypt.hashpw(os.environ['BCRYPT_PW'].encode(), bcrypt.gensalt()).decode())")"
+pw    = os.environ['BCRYPT_PW'].encode()
+db    = os.environ['MANAGER_DB']
+team  = os.environ['TEAM_NAME']
+port  = int(os.environ['TEAM_PORT'])
+pw_hash = bcrypt.hashpw(pw, bcrypt.gensalt()).decode()
 
-sqlite3 "$MANAGER_DB" \
-    "INSERT OR REPLACE INTO teams (name, password_hash, port, status)
-     VALUES ('${TEAM}', '${PW_HASH}', ${PORT}, 'ready');"
+conn = sqlite3.connect(db)
+conn.execute(
+    "INSERT OR REPLACE INTO teams (name, password_hash, port, status) VALUES (?,?,?,?)",
+    (team, pw_hash, port, 'ready')
+)
+conn.commit()
+conn.close()
+PYEOF
 
 echo ""
 echo "  Manager: team registered."
