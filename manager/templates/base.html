@@ -11,28 +11,38 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:     #05090e;
-      --surf:   #0a1520;
-      --surf2:  #0f1d2e;
-      --bdr:    #142030;
-      --bdr2:   #1c3048;
-      --cyan:   #00c8ff;
-      --green:  #00e587;
-      --red:    #ff3d52;
-      --amber:  #ffaa00;
-      --muted:  #375570;
-      --text:   #6aa0c0;
-      --head:   #d8eeff;
-      --mono:   'JetBrains Mono', 'Courier New', monospace;
-      --sans:   'Rajdhani', 'Trebuchet MS', sans-serif;
-      --disp:   'Bebas Neue', 'Arial Narrow', sans-serif;
+      /* Surfaces — clearly stepped elevation (Material dark theme) */
+      --bg:    #080F18;
+      --surf:  #0F1A28;
+      --surf2: #172438;
+      --bdr:   #1E3048;
+      --bdr2:  #2C4865;
+
+      /* Primary — Material Cyan 400 (brighter on dark bg) */
+      --cyan:  #29B6F6;
+
+      /* Status — Material A200 accent shades */
+      --green: #69F0AE;
+      --red:   #FF5252;
+      --amber: #FFD740;
+
+      /* Typography — Material dark emphasis scale
+         high ~95%: #E3F2FF  medium ~70%: #90C4E0  secondary ~55%: #6B9AB8
+         Old --muted #375570 was 2.4:1 contrast — new value is 6.1:1 (AA+) */
+      --head:  #E3F2FF;
+      --text:  #90C4E0;
+      --muted: #6B9AB8;
+
+      --mono:  'JetBrains Mono', 'Courier New', monospace;
+      --sans:  'Rajdhani', 'Trebuchet MS', sans-serif;
+      --disp:  'Bebas Neue', 'Arial Narrow', sans-serif;
     }
 
     body {
       background: var(--bg);
       background-image:
-        linear-gradient(rgba(0,200,255,.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,200,255,.018) 1px, transparent 1px);
+        linear-gradient(rgba(41,182,246,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(41,182,246,.03) 1px, transparent 1px);
       background-size: 50px 50px;
       color: var(--text);
       font-family: var(--sans);
@@ -44,7 +54,7 @@
     /* ── HEADER ──────────────────────────────────────────────────────────── */
     header {
       position: relative;
-      background: linear-gradient(180deg, #0d1d2e 0%, var(--surf) 100%);
+      background: linear-gradient(180deg, #111E30 0%, var(--surf) 100%);
       border-bottom: 1px solid var(--bdr);
       padding: 0 1.75rem;
       height: 52px;
@@ -151,7 +161,7 @@
     }
     input:focus {
       border-color: var(--cyan);
-      box-shadow: 0 0 0 3px rgba(0,200,255,.07);
+      box-shadow: 0 0 0 3px rgba(41,182,246,.12);
     }
     input::placeholder { color: var(--muted); opacity: .5; }
 
@@ -167,11 +177,11 @@
       transition: background .2s, box-shadow .2s;
     }
     button:hover, .btn:hover {
-      background: rgba(0,200,255,.09);
-      box-shadow: 0 0 18px rgba(0,200,255,.14);
+      background: rgba(41,182,246,.12);
+      box-shadow: 0 0 18px rgba(41,182,246,.18);
     }
     button.danger { color: var(--red); border-color: var(--red); }
-    button.danger:hover { background: rgba(255,61,82,.09); box-shadow: 0 0 18px rgba(255,61,82,.14); }
+    button.danger:hover { background: rgba(255,82,82,.12); box-shadow: 0 0 18px rgba(255,82,82,.18); }
     button.secondary { color: var(--text); border-color: var(--bdr2); }
     button.secondary:hover { background: rgba(255,255,255,.04); box-shadow: none; }
 
@@ -208,7 +218,7 @@
       vertical-align: middle; font-size: .9rem;
     }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(0,200,255,.02); }
+    tr:hover td { background: rgba(41,182,246,.04); }
 
     .action-form { display: inline; }
     .action-form button { margin: 0; width: auto; padding: .18rem .6rem; font-size: .68rem; letter-spacing: .05em; }
