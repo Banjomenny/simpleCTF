@@ -73,6 +73,12 @@
     Hints deduct points from your score. Cheaper hints come first — unlock in order.
   </p>
 
+  {% if not hints_enabled %}
+  <div class="flash error" style="margin-bottom:1.5rem;">
+    &#128274; Hints are not available yet. The organiser will enable them during the event.
+  </div>
+  {% else %}
+
   {% if total_cost > 0 %}
   <div class="total-bar">
     <span>Total hint penalty</span>
@@ -133,5 +139,7 @@
   </div>
   {% endif %}
   {% endfor %}
+
+  {% endif %}{# hints_enabled #}
 </div>
 {% endblock %}

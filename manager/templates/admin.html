@@ -19,7 +19,18 @@
       <h1 style="margin-bottom:.15rem;">Admin Panel</h1>
       <p class="muted" style="font-size:.8rem;">{{ teams|length }} team(s) registered</p>
     </div>
-    <a href="/admin" class="btn" style="width:auto; margin:0; padding:.4rem 1rem; font-size:.72rem;">&#8635; Refresh</a>
+    <div style="display:flex;gap:.6rem;align-items:center;">
+      <form method="POST" action="/admin/toggle-hints" class="action-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit"
+          style="margin:0;width:auto;padding:.4rem 1rem;font-size:.72rem;
+                 {% if hints_enabled %}color:var(--amber);border-color:var(--amber);{% endif %}"
+          onclick="return confirm('{% if hints_enabled %}Disable hints for all teams?{% else %}Enable hints for all teams?{% endif %}')">
+          {% if hints_enabled %}&#128275; Disable Hints{% else %}&#128274; Enable Hints{% endif %}
+        </button>
+      </form>
+      <a href="/admin" class="btn" style="width:auto; margin:0; padding:.4rem 1rem; font-size:.72rem;">&#8635; Refresh</a>
+    </div>
   </div>
 
   {% if teams %}

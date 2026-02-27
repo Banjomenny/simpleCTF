@@ -187,6 +187,16 @@ def init_db():
                 UNIQUE(team_name, flag_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        # Default: hints disabled until admin enables them
+        conn.execute("""
+            INSERT OR IGNORE INTO settings (key, value) VALUES ('hints_enabled', '0')
+        """)
         conn.commit()
 
 
@@ -198,6 +208,18 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+
+def get_setting(key: str, default: str = '') -> str:
+    with get_db() as db:
+        row = db.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
+    return row['value'] if row else default
+
+
+def set_setting(key: str, value: str):
+    with get_db() as db:
+        db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
+        db.commit()
 
 
 def get_team_by_name(name: str):
@@ -666,6 +688,12 @@ def hints():
         session.clear()
         flash('Team not found. Please log in again.', 'error')
         return redirect(url_for('index'))
+    if get_setting('hints_enabled', '0') != '1':
+        return render_template('hints.html',
+                               flags=FLAGS, flag_hints={}, purchased=set(),
+                               total_cost=0, revealed_names=set(),
+                               flag_accessible={}, hints_enabled=False)
+
     purchased = get_purchased_hints(team_name)
     captured  = get_team_submissions(team_name)
     total_cost = sum(h['cost'] for h in HINTS if h['id'] in purchased)
@@ -695,7 +723,8 @@ def hints():
                            purchased=purchased,
                            total_cost=total_cost,
                            revealed_names=revealed_names,
-                           flag_accessible=flag_accessible)
+                           flag_accessible=flag_accessible,
+                           hints_enabled=True)
 
 
 @app.route('/hints/buy', methods=['POST'])
@@ -716,6 +745,10 @@ def buy_hint():
     hint = next((h for h in HINTS if h['id'] == hint_id), None)
     if not hint:
         flash('Invalid hint.', 'error')
+        return redirect(url_for('hints'))
+
+    if get_setting('hints_enabled', '0') != '1':
+        flash('Hints are not available yet.', 'error')
         return redirect(url_for('hints'))
 
     # Enforce flag capture chain: previous flag must be captured before buying hints here
@@ -866,12 +899,14 @@ def admin():
     capture_order = get_capture_order()
     hint_costs    = get_all_hint_costs()
     name_costs    = get_all_name_reveal_costs()
+    hints_enabled = get_setting('hints_enabled', '0') == '1'
     for t in teams:
         captured      = get_team_submissions(t['name'])
         hcost         = hint_costs.get(t['name'], 0) + name_costs.get(t['name'], 0)
         t['score']    = _calc_score(t['name'], captured, capture_order, hcost)
         t['captures'] = len(captured)
-    return render_template('admin.html', teams=teams, max_score=MAX_SCORE)
+    return render_template('admin.html', teams=teams, max_score=MAX_SCORE,
+                           hints_enabled=hints_enabled)
 
 
 @app.route('/admin/stop/<team_name>', methods=['POST'])
@@ -926,6 +961,17 @@ def admin_reset_password(team_name):
         db.commit()
 
     flash(f'Password reset for "{team_name}".', 'success')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/toggle-hints', methods=['POST'])
+@admin_required
+def admin_toggle_hints():
+    current = get_setting('hints_enabled', '0')
+    new_val = '0' if current == '1' else '1'
+    set_setting('hints_enabled', new_val)
+    state = 'enabled' if new_val == '1' else 'disabled'
+    flash(f'Hints {state}.', 'success')
     return redirect(url_for('admin'))
 
 
