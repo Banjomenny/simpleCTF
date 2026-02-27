@@ -197,6 +197,10 @@ def init_db():
         conn.execute("""
             INSERT OR IGNORE INTO settings (key, value) VALUES ('hints_enabled', '0')
         """)
+        # Purge orphaned rows from teams deleted before cascade cleanup was in place
+        conn.execute("DELETE FROM submissions   WHERE team_name NOT IN (SELECT name FROM teams)")
+        conn.execute("DELETE FROM hint_purchases WHERE team_name NOT IN (SELECT name FROM teams)")
+        conn.execute("DELETE FROM name_purchases WHERE team_name NOT IN (SELECT name FROM teams)")
         conn.commit()
 
 
@@ -845,6 +849,8 @@ def scoreboard():
     capture_order = get_capture_order()
     graph_data = {}
     for team_name, events in events_by_team.items():
+        if team_name not in created:   # skip orphaned rows from deleted teams
+            continue
         events.sort(key=lambda e: e[0])
         start_ts = created.get(team_name) or events[0][0]
         series = [{'x': _ts_to_ms(start_ts), 'y': 0}]
