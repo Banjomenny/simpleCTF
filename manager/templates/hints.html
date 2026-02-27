@@ -83,7 +83,8 @@
   {% for flag in flags %}
   {% set fid = flag.id %}
   {% set visible = flag_hints[fid] %}
-  {% if visible %}
+  {% set accessible = flag_accessible[fid] %}
+  {% if visible or not accessible %}
   <div class="hint-group">
     <h2>{% if fid in revealed_names %}{{ flag.name }}{% else %}Flag {{ loop.index }}{% endif %}
       <span class="muted" style="font-size:.65em;font-family:var(--mono);font-weight:400;">
@@ -91,35 +92,44 @@
       </span>
     </h2>
 
-    {% for hint in visible %}
-    {% set is_purchased = hint.id in purchased %}
-    <div class="hint-card {% if is_purchased %}purchased{% endif %}">
-      <span class="hint-text {% if not is_purchased %}locked{% endif %}">
-        {% if is_purchased %}
-          {{ hint.text }}
-        {% else %}
-          Purchase this hint to reveal its contents.
-        {% endif %}
-      </span>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;">
-        <span class="hint-cost {% if is_purchased %}deducted{% else %}pending{% endif %}">
-          {% if is_purchased %}-{% endif %}{{ hint.cost }} pts
+    {% if not accessible %}
+      {% set prev_index = loop.index - 1 %}
+      <div class="hint-card locked" style="justify-content:center;">
+        <span class="hint-text locked" style="text-align:center;">
+          &#128274; Capture Flag {{ prev_index }} first to unlock hints for this challenge.
         </span>
-        {% if is_purchased %}
-          <span class="badge ready" style="font-size:.6rem;">unlocked</span>
-        {% else %}
-          <form method="POST" action="/hints/buy" class="action-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="hint_id" value="{{ hint.id }}">
-            <button type="submit" class="hint-btn"
-              onclick="return confirm('Buy this hint for {{ hint.cost }} pts?')">
-              Buy hint
-            </button>
-          </form>
-        {% endif %}
       </div>
-    </div>
-    {% endfor %}
+    {% else %}
+      {% for hint in visible %}
+      {% set is_purchased = hint.id in purchased %}
+      <div class="hint-card {% if is_purchased %}purchased{% endif %}">
+        <span class="hint-text {% if not is_purchased %}locked{% endif %}">
+          {% if is_purchased %}
+            {{ hint.text }}
+          {% else %}
+            Purchase this hint to reveal its contents.
+          {% endif %}
+        </span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;">
+          <span class="hint-cost {% if is_purchased %}deducted{% else %}pending{% endif %}">
+            {% if is_purchased %}-{% endif %}{{ hint.cost }} pts
+          </span>
+          {% if is_purchased %}
+            <span class="badge ready" style="font-size:.6rem;">unlocked</span>
+          {% else %}
+            <form method="POST" action="/hints/buy" class="action-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="hint_id" value="{{ hint.id }}">
+              <button type="submit" class="hint-btn"
+                onclick="return confirm('Buy this hint for {{ hint.cost }} pts?')">
+                Buy hint
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% endif %}
   </div>
   {% endif %}
   {% endfor %}

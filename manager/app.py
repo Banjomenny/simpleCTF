@@ -306,6 +306,20 @@ def get_all_hint_costs() -> dict:
     return dict(costs)
 
 
+# Ordered list of flag IDs — defines the required capture chain for hint access
+_FLAG_ORDER = [f['id'] for f in FLAGS]
+
+
+def _flag_hint_accessible(flag_id: str, captured: set) -> bool:
+    """Return True if a team may purchase hints for this flag.
+    The first flag is always accessible; every other flag requires the
+    previous flag in _FLAG_ORDER to have been captured first."""
+    idx = _FLAG_ORDER.index(flag_id) if flag_id in _FLAG_ORDER else -1
+    if idx <= 0:
+        return True
+    return _FLAG_ORDER[idx - 1] in captured
+
+
 def _flag_points(base: int, fb_mult: float, position: int) -> int:
     """Points for capturing a flag at a given position (1-indexed).
     1st  : first blood  — base * fb_mult
@@ -653,7 +667,11 @@ def hints():
         flash('Team not found. Please log in again.', 'error')
         return redirect(url_for('index'))
     purchased = get_purchased_hints(team_name)
+    captured  = get_team_submissions(team_name)
     total_cost = sum(h['cost'] for h in HINTS if h['id'] in purchased)
+
+    # Per-flag accessibility: can hints be purchased for this flag?
+    flag_accessible = {f['id']: _flag_hint_accessible(f['id'], captured) for f in FLAGS}
 
     # Build per-flag hint lists, gating later hints behind earlier purchases
     flag_hints: dict = {}
@@ -676,7 +694,8 @@ def hints():
                            flag_hints=flag_hints,
                            purchased=purchased,
                            total_cost=total_cost,
-                           revealed_names=revealed_names)
+                           revealed_names=revealed_names,
+                           flag_accessible=flag_accessible)
 
 
 @app.route('/hints/buy', methods=['POST'])
@@ -697,6 +716,12 @@ def buy_hint():
     hint = next((h for h in HINTS if h['id'] == hint_id), None)
     if not hint:
         flash('Invalid hint.', 'error')
+        return redirect(url_for('hints'))
+
+    # Enforce flag capture chain: previous flag must be captured before buying hints here
+    captured = get_team_submissions(team_name)
+    if not _flag_hint_accessible(hint['flag_id'], captured):
+        flash('Capture the previous flag first to unlock hints for this challenge.', 'error')
         return redirect(url_for('hints'))
 
     # Enforce sequential unlock: must own previous hint first
