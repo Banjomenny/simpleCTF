@@ -1,0 +1,13 @@
+# Enforce LF line endings in the repo and on checkout (Linux deployment)
+* text=auto eol=lf
+
+# Shell scripts must always be LF — CRLF will break bash on the server
+*.sh text eol=lf
+
+# Explicitly binary — never mangle these
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
