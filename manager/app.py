@@ -651,6 +651,7 @@ def dashboard():
 
 @app.route('/submit', methods=['POST'])
 @login_required
+@limiter.limit("10 per minute")
 def submit_flag():
     team_name = session['team']
     submitted = request.form.get('flag', '').strip()

@@ -97,7 +97,7 @@ Edit environment variables in `challenge/docker-compose.yaml` then rebuild. The 
 - All admin pages (`admin.php`, `admin_users.php`, `admin_logs.php`, `admin_uploads.php`) must call `session_start()` before the role check — the role check runs before `internal_theme.php` is included.
 - `internal_theme.php` guards `session_start()` with `if (session_status() === PHP_SESSION_NONE)` to prevent double-call warnings.
 - `db/bankingai.sql` is a clean MySQL 8.0 file (no `@OLD_*` compatibility headers from mysqldump). Do not replace it with a raw mysqldump output from MySQL 5.7.
-- Admin passwords: `ewright` = `Welcome1`, `msmith` = `admin123` (both in rockyou.txt; MD5 hashed in SQL).
+- Admin passwords: `adm_ewright` = `P@ssw0rd99`, `adm_msmith` = `Welc0me@2` (both in rockyou.txt; MD5 hashed in SQL).
 - The `uploads/` directory is gitignored and world-writable; PHP files placed there execute.
 
 ## Manager Implementation Notes
