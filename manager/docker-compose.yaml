@@ -10,36 +10,45 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Persist the SQLite database across container restarts
       - ./data:/app/data
-      # Mount the CTF compose file into the container at a fixed path.
-      # CTF_COMPOSE_FILE must point to this *container* path (see note below).
-      - ../challenge/docker-compose.yaml:/ctf/challenge/docker-compose.yaml:ro
+      # Active CTF challenge compose file (set via .env CTF_COMPOSE_HOST_PATH)
+      - ${CTF_COMPOSE_HOST_PATH:-../challenge/docker-compose.yaml}:/ctf/challenge/docker-compose.yaml:ro
+      # JSON config directory (set via .env, contains bankingai.json or task1.json)
+      - ${CTF_CONFIG_DIR:-./config}:/ctf/config:ro
     environment:
       # --- REQUIRED: change these before running ---
-      SECRET_KEY:        "change-me-to-a-random-string"
-      ADMIN_TOKEN:       "change-me-to-a-secret-token"
+      SECRET_KEY:        "${SECRET_KEY:-change-me-to-a-random-string}"
+      ADMIN_TOKEN:       "${ADMIN_TOKEN:-change-me-to-a-secret-token}"
 
       # Path to the compose file as seen INSIDE the manager container.
-      # The file is bind-mounted from ../challenge/docker-compose.yaml (see volumes above).
+      # The file is bind-mounted from CTF_COMPOSE_HOST_PATH (see volumes above).
       # Do not change this unless you change the volume mount target too.
       CTF_COMPOSE_FILE:  "/ctf/challenge/docker-compose.yaml"
 
-      # Absolute path to the challenge/ directory on the HOST machine.
+      # Absolute path to the challenge directory on the HOST machine.
       # Used as --project-directory so the Docker daemon resolves relative bind mounts
       # (e.g. ./web/src) against the real host filesystem, not the container filesystem.
-      #
-      # Example: if you cloned the repo to /home/user/bankingai-ctf on the host, set:
-      #   CHALLENGE_DIR: /home/user/bankingai-ctf/challenge
-      CHALLENGE_DIR:     "/home/user/bankingai-ctf/challenge"
+      CHALLENGE_DIR:     "${CTF_CHALLENGE_DIR:-/home/user/ctf/challenge}"
 
       # IP or hostname teams will use to reach their instance.
-      # Use a LAN IP, public hostname, or 127.0.0.1 for local testing.
-      HOST_IP:           "192.168.1.10"
+      HOST_IP:           "${HOST_IP:-192.168.1.10}"
 
       # First port in the range assigned to team instances (inclusive).
-      PORT_RANGE_START:  "8000"
+      PORT_RANGE_START:  "${PORT_RANGE_START:-8000}"
 
       # Secret used to derive per-team flags.
-      # Flags are generated as CTF{<slug>_<hmac(FLAG_SECRET, flag_id:team_name)[:8]>}
-      # e.g. CTF{login_3a7f9c21} — unique per team, no manual sync needed.
-      # Change this before running; do not share it with players.
-      FLAG_SECRET:               "change-me-flag-secret"
+      FLAG_SECRET:       "${FLAG_SECRET:-change-me-flag-secret}"
+
+      # Path to the CTF JSON config inside the container (mounted via CTF_CONFIG_DIR).
+      CTF_CONFIG_FILE:   "${CTF_CONFIG_FILE:-/ctf/config/bankingai.json}"
+
+      # Display name for the CTF (shown in page titles).
+      CTF_NAME:          "${CTF_NAME:-BankingAI CTF}"
+
+      # Docker service name for the web container (usually 'web').
+      WEB_SERVICE_NAME:  "${WEB_SERVICE_NAME:-web}"
+
+      # Seconds to wait for the web container to become ready.
+      STARTUP_TIMEOUT:   "${STARTUP_TIMEOUT:-180}"
+
+      # IANA timezone name for score timestamps (e.g. America/New_York).
+      TZ_NAME:           "${TZ_NAME:-America/New_York}"

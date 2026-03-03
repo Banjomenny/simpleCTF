@@ -1,4 +1,4 @@
-# BankingAI Cloud — CTF Challenge
+# BankingAI CTF — Challenge
 
 ## The Story
 
@@ -12,7 +12,7 @@ Your job is to get inside their internal employee portal, escalate your access, 
 
 ## Description
 
-A multi-stage web challenge built around a PHP employee portal backed by MySQL. Players work through a chain of vulnerabilities across the application, each rewarding a flag. No CVEs, no guessing — just enumeration, exploitation, and escalation.
+A multi-stage web challenge built around a PHP employee portal backed by MySQL. Players work through a chain of vulnerabilities, each rewarding a flag. No CVEs, no guessing — just enumeration, exploitation, and escalation.
 
 The final objective is to read `/flag.txt` from the server — you'll need to find a way to execute code to get there.
 
@@ -22,21 +22,19 @@ The final objective is to read `/flag.txt` from the server — you'll need to fi
 
 ---
 
-## Running the Challenge
+## Running Standalone (single instance)
 
 ### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/) (included with Docker Desktop)
+- [Docker](https://docs.docker.com/get-docker/) with Compose plugin
 
 ### Start
 
 ```bash
-git clone <repo-url>
 cd challenge
 docker compose up --build -d
 ```
 
-The challenge will be available at **http://localhost** once both containers are healthy. The database takes ~30 seconds to initialise on first run.
+Available at **http://localhost** once both containers are healthy. The database takes ~30 seconds to initialise on first run.
 
 ### Stop
 
@@ -53,9 +51,9 @@ docker compose up --build -d
 
 ---
 
-## Running Multiple Teams
+## Running Multi-Team (with manager)
 
-> **Recommended:** use the manager app (see root `README.md`) — it handles registration, port assignment, flag generation, and the admin panel automatically.
+> **Recommended:** use `setup.sh` at the repo root — it pulls the pre-built image from GHCR, generates secrets, and configures the manager automatically. See the root `README.md`.
 
 For manual control without the manager, scripts are in `scripts/`.
 
@@ -76,33 +74,40 @@ bash scripts/remove_team.sh alpha
 bash scripts/list_teams.sh
 ```
 
-On first run the web image is built. Subsequent teams reuse the cached image and start in seconds.
-
 ---
 
-## Customising Flags
+## Flags
 
-**Using the manager (multi-team):** Flags are generated automatically from `FLAG_SECRET` + team name — do not edit `docker-compose.yaml`. See the root `README.md` for details.
+| Env var | Location | Points |
+|---------|----------|--------|
+| `FLAG_INSPECTED` | HTML comment in `products.php` (view source) | 75 |
+| `FLAG_LOGIN` | Shown on `dashboard.php` after login | 100 |
+| `FLAG_SQL_INJECTION` | Written as a `username` row in the `users` table | 150 |
+| `FLAG_USER_ESCALATION` | Rendered in `admin_subnav.php` nav link | 125 |
+| `FLAG_FILE_UPLOAD` | Written to `/flag.txt` at container start | 200 |
 
-**Standalone testing only:** Flags are set as environment variables in `docker-compose.yaml`. Edit the values before starting:
+When deployed via the manager, flag values are generated automatically per team from `FLAG_SECRET` + team name (HMAC-SHA256). When running standalone, the defaults from `docker-compose.yaml` are used.
+
+**Customising flags for standalone testing:**
+
+Edit the environment variables in `docker-compose.yaml` before starting:
 
 ```yaml
 web:
   environment:
-    FLAG_LOGIN:        "CTF{your_flag}"
-    FLAG_INSPECTED:    "CTF{your_flag}"
+    FLAG_LOGIN:           "CTF{your_flag}"
+    FLAG_INSPECTED:       "CTF{your_flag}"
     FLAG_USER_ESCALATION: "CTF{your_flag}"
-    FLAG_FILE_UPLOAD:  "CTF{your_flag}"
+    FLAG_FILE_UPLOAD:     "CTF{your_flag}"
 
 db:
   environment:
     FLAG_SQL_INJECTION: "CTF{your_flag}"
 ```
 
-Then rebuild:
-
+Then restart:
 ```bash
-docker compose up --build -d
+docker compose down && docker compose up --build -d
 ```
 
 ---

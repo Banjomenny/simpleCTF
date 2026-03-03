@@ -1,0 +1,17 @@
+{
+  "ctf_name": "SWOCTS — Task 1",
+  "flag_name_cost": 5,
+  "flags": [
+    {"id":"FLAG_SOURCE",      "name":"Source Code",     "points": 75,  "fb_multiplier":1.2},
+    {"id":"FLAG_SSH_CREDS",   "name":"SSH Credentials", "points":150,  "fb_multiplier":1.2},
+    {"id":"FLAG_BASH_HISTORY","name":"Bash History",    "points":200,  "fb_multiplier":1.2}
+  ],
+  "hints": [
+    {"id":1,"flag_id":"FLAG_SOURCE","order":1,"cost":10,"text":"Everything on a web page is visible, even things not displayed."},
+    {"id":2,"flag_id":"FLAG_SOURCE","order":2,"cost":25,"text":"Right-click → View Page Source on the login page."},
+    {"id":3,"flag_id":"FLAG_SSH_CREDS","order":1,"cost":15,"text":"There's a downloadable zip on the dashboard. Files can hide more than they show."},
+    {"id":4,"flag_id":"FLAG_SSH_CREDS","order":2,"cost":40,"text":"Check the EXIF metadata of images inside the zip — tools like ExifTool or strings can extract embedded text."},
+    {"id":5,"flag_id":"FLAG_BASH_HISTORY","order":1,"cost":15,"text":"Once you have SSH access, look at what commands have been run on the system."},
+    {"id":6,"flag_id":"FLAG_BASH_HISTORY","order":2,"cost":35,"text":"Bash stores every command typed. Try: cat .bash_history — or just: history"}
+  ]
+}

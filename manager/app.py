@@ -14,6 +14,7 @@ Environment variables (set in manager/docker-compose.yaml):
 
 import hashlib
 import hmac
+import json
 import logging
 import os
 import re
@@ -59,7 +60,13 @@ HOST_IP          = os.environ.get('HOST_IP', '127.0.0.1')
 # Single secret used to derive all per-team flags
 FLAG_SECRET      = os.environ.get('FLAG_SECRET', 'change-me-flag-secret')
 
-TZ = ZoneInfo('America/New_York')
+CTF_NAME         = os.environ.get('CTF_NAME',         'BankingAI CTF')
+WEB_SERVICE_NAME = os.environ.get('WEB_SERVICE_NAME', 'web')
+CTF_CONFIG_FILE  = os.environ.get('CTF_CONFIG_FILE',  '')
+STARTUP_TIMEOUT  = int(os.environ.get('STARTUP_TIMEOUT', '180'))
+TZ_NAME          = os.environ.get('TZ_NAME',          'America/New_York')
+
+TZ = ZoneInfo(TZ_NAME)
 
 
 def _ts_to_ms(ts_str: str) -> int:
@@ -78,7 +85,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'manager.db')
 # Flag config
 # ---------------------------------------------------------------------------
 
-FLAGS = [
+_BANKINGAI_FLAGS = [
     # Points reflect difficulty (75–200). fb_multiplier applied to first capture only.
     {'id': 'FLAG_INSPECTED',            'name': 'Inspect the Source',   'points':  75, 'fb_multiplier': 1.2},
     {'id': 'FLAG_LOGIN',                'name': 'Initial Access',        'points': 100, 'fb_multiplier': 1.2},
@@ -86,16 +93,13 @@ FLAGS = [
     {'id': 'FLAG_USER_ESCALATION',         'name': 'User Escalation',       'points': 125, 'fb_multiplier': 1.2},
     {'id': 'FLAG_FILE_UPLOAD',          'name': 'File Upload RCE',       'points': 200, 'fb_multiplier': 1.2},
 ]
-# Base total (no first blood bonuses). MAX_POSSIBLE includes all first blood bonuses.
-MAX_SCORE    = sum(f['points'] for f in FLAGS)
-MAX_POSSIBLE = sum(int(f['points'] * f['fb_multiplier']) for f in FLAGS)
 
 # Cost to reveal a flag's challenge name on the dashboard
-FLAG_NAME_COST = 5
+_BANKINGAI_FLAG_NAME_COST = 5
 
 # Hints — sequential per flag (order N requires order N-1 purchased first).
 # cost is deducted from the team's score when purchased.
-HINTS = [
+_BANKINGAI_HINTS = [
     # ── FLAG_INSPECTED ──────────────────────────────────────────────────────
     {'id':  1, 'flag_id': 'FLAG_INSPECTED',            'order': 1, 'cost': 10,
      'text': "Something is hidden in plain sight on one of the public pages."},
@@ -128,6 +132,31 @@ HINTS = [
     {'id': 13, 'flag_id': 'FLAG_FILE_UPLOAD',          'order': 3, 'cost': 80,
      'text': "Uploaded files are served from /uploads/. A PHP webshell with ?cmd=cat+/flag.txt will read the flag."},
 ]
+
+
+def load_ctf_config() -> tuple:
+    if not CTF_CONFIG_FILE:
+        return _BANKINGAI_FLAGS, _BANKINGAI_HINTS, CTF_NAME, _BANKINGAI_FLAG_NAME_COST
+    try:
+        with open(CTF_CONFIG_FILE, 'r', encoding='utf-8') as fh:
+            cfg = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        logging.warning('CTF_CONFIG_FILE %s unreadable (%s); using hardcoded defaults',
+                        CTF_CONFIG_FILE, exc)
+        return _BANKINGAI_FLAGS, _BANKINGAI_HINTS, CTF_NAME, _BANKINGAI_FLAG_NAME_COST
+    return (
+        cfg.get('flags', []),
+        cfg.get('hints', []),
+        cfg.get('ctf_name', CTF_NAME),
+        int(cfg.get('flag_name_cost', _BANKINGAI_FLAG_NAME_COST)),
+    )
+
+
+FLAGS, HINTS, CTF_NAME_EFFECTIVE, FLAG_NAME_COST = load_ctf_config()
+
+# Base total (no first blood bonuses). MAX_POSSIBLE includes all first blood bonuses.
+MAX_SCORE    = sum(f['points'] for f in FLAGS)
+MAX_POSSIBLE = sum(int(f['points'] * f['fb_multiplier']) for f in FLAGS)
 
 
 def _team_flag(flag_id: str, team_name: str) -> str:
@@ -476,7 +505,7 @@ def _web_container_state(team_name: str) -> str:
     project = f'ctf_{team_name.lower()}'
     result = subprocess.run(
         ['docker', 'ps', '-a',
-         '--filter', f'name={project}-web',
+         '--filter', f'name={project}-{WEB_SERVICE_NAME}',
          '--format', '{{.State}}'],
         capture_output=True, text=True, timeout=10,
     )
@@ -490,7 +519,7 @@ def _web_container_state(team_name: str) -> str:
     return ''
 
 
-def _poll_until_ready(team_name: str, port: int, timeout: int = 180):
+def _poll_until_ready(team_name: str, port: int, timeout: int = STARTUP_TIMEOUT):
     """Background thread: poll via Docker socket until the web container is running.
 
     If the web container is stuck in 'created' state (db health check raced with
@@ -512,7 +541,7 @@ def _poll_until_ready(team_name: str, port: int, timeout: int = 180):
                 # done when compose exited. Start the container directly.
                 logging.info('Web container for %s is Created; starting it now', team_name)
                 subprocess.run(
-                    ['docker', 'start', f'{project}-web-1'],
+                    ['docker', 'start', f'{project}-{WEB_SERVICE_NAME}-1'],
                     capture_output=True, timeout=15,
                 )
         except Exception as exc:
@@ -666,6 +695,11 @@ def dashboard():
 @limiter.limit("10 per minute")
 def submit_flag():
     team_name = session['team']
+
+    if not FLAGS:
+        flash('Flag submission is not configured for this event.', 'error')
+        return redirect(url_for('dashboard'))
+
     submitted = request.form.get('flag', '').strip()
 
     matched_flag = None
@@ -925,7 +959,7 @@ def admin():
         t['score']    = _calc_score(t['name'], captured, capture_order, hcost)
         t['captures'] = len(captured)
     return render_template('admin.html', teams=teams, max_score=MAX_SCORE,
-                           hints_enabled=hints_enabled)
+                           flags=FLAGS, hints=HINTS, hints_enabled=hints_enabled)
 
 
 @app.route('/admin/stop/<team_name>', methods=['POST'])
@@ -1023,6 +1057,7 @@ def admin_delete(team_name):
 # ---------------------------------------------------------------------------
 
 init_db()
+app.jinja_env.globals.update(ctf_name=CTF_NAME_EFFECTIVE, tz_name=TZ_NAME)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=False)

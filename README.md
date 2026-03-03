@@ -1,11 +1,20 @@
-# BankingAI CTF
+# simpleCTF
 
-A self-hosted Capture the Flag platform. Players solve a multi-stage PHP web challenge — each team gets their own isolated Docker instance, automatically provisioned through a web registration portal.
+A self-hosted Capture the Flag platform. Each team gets their own isolated Docker challenge instance, automatically provisioned through a web registration portal.
+
+Two challenges are available — select one at deploy time via `setup.sh`:
+
+| Challenge | Stack | Flags | Max pts |
+|-----------|-------|-------|---------|
+| **BankingAI CTF** | PHP + MySQL | 5 | 650 |
+| **SWOCTS — Task 1** | Python Flask | 3 | 425 |
 
 ```
-bankingai-ctf/
-├── challenge/   ← the CTF challenge players solve (PHP + MySQL)
-└── manager/     ← web portal: team registration, instance management, admin panel
+ctf/
+├── setup.sh        ← interactive setup wizard (start here)
+├── challenge/      ← BankingAI CTF (PHP + MySQL)
+├── task-1/         ← SWOCTS Task 1 (Python Flask)
+└── manager/        ← web portal: registration, scoring, admin panel
 ```
 
 ---
@@ -13,20 +22,16 @@ bankingai-ctf/
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Option A — Single Instance (quick test)](#option-a--single-instance-quick-test)
-3. [Option B — Multi-Team with Manager](#option-b--multi-team-with-manager)
-   - [Step 1: Clone the repo](#step-1-clone-the-repo)
-   - [Step 2: Build the challenge image](#step-2-build-the-challenge-image)
-   - [Step 3: Configure the manager](#step-3-configure-the-manager)
-   - [Step 4: Start the manager](#step-4-start-the-manager)
-   - [Step 5: Admin panel](#step-5-admin-panel)
-4. [Scoring & First Blood](#scoring--first-blood)
-5. [Managing Teams Manually (no manager)](#managing-teams-manually-no-manager)
-6. [Customising Flags](#customising-flags)
-7. [Stopping & Resetting](#stopping--resetting)
-8. [Full Reset Script](#full-reset-script)
-9. [Troubleshooting](#troubleshooting)
-10. [Repository Layout](#repository-layout)
+2. [Quick Start — Multi-Team with Manager](#quick-start--multi-team-with-manager)
+3. [Option A — Single Instance (no manager)](#option-a--single-instance-no-manager)
+4. [How the Manager Works](#how-the-manager-works)
+5. [Scoring & First Blood](#scoring--first-blood)
+6. [Admin Panel](#admin-panel)
+7. [Switching Challenges](#switching-challenges)
+8. [Customising Flags](#customising-flags)
+9. [Stopping & Resetting](#stopping--resetting)
+10. [Troubleshooting](#troubleshooting)
+11. [Repository Layout](#repository-layout)
 
 ---
 
@@ -36,350 +41,309 @@ bankingai-ctf/
   - Docker Desktop includes both on Windows/macOS
   - On Linux: `sudo apt install docker.io docker-compose-plugin`
 - **Linux or macOS host** for the manager (it mounts `/var/run/docker.sock`)
+- `openssl` in PATH (used by `setup.sh` to generate secrets)
 - Git
 
-Verify your install:
-
+Verify:
 ```bash
-docker --version          # Docker version 24+
-docker compose version    # Docker Compose version v2+
+docker --version          # Docker 24+
+docker compose version    # Compose v2+
+openssl version
 ```
 
 ---
 
-## Option A — Single Instance (quick test)
+## Quick Start — Multi-Team with Manager
 
-Runs one challenge instance for testing or solo play. No manager needed.
+### 1. Clone the repo
 
 ```bash
-git clone <repo-url> bankingai-ctf
-cd bankingai-ctf/challenge
-docker compose up --build -d
+git clone <repo-url> ctf
+cd ctf
 ```
 
-Open **http://localhost** in your browser.
+### 2. Run the setup wizard
 
-> **Note:** The MySQL database takes ~30 seconds to initialise on first run. If the page doesn't load immediately, wait and refresh.
+```bash
+bash setup.sh
+```
+
+The wizard will:
+1. Ask which CTF to run (BankingAI or SWOCTS Task 1)
+2. Ask for the `HOST_IP` players will connect to
+3. Generate random `SECRET_KEY`, `ADMIN_TOKEN`, and `FLAG_SECRET`
+4. Pull the pre-built challenge image from `ghcr.io` and tag it locally
+5. Write `manager/.env` with all settings
+
+> **Finding your HOST_IP:**
+> ```bash
+> # Linux
+> hostname -I | awk '{print $1}'
+> # macOS
+> ipconfig getifaddr en0
+> # Windows (PowerShell)
+> (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike "*Loopback*"} | Select-Object -First 1).IPAddress
+> ```
+
+### 3. Start the manager
+
+```bash
+cd manager
+docker compose up -d
+```
+
+The manager is now running at **http://HOST_IP** (port 80).
+
+Players visit that URL, register a team name and password, and receive their own challenge instance. Their dashboard shows the instance URL as soon as it is ready (typically 5–30 seconds depending on the challenge).
+
+---
+
+## Option A — Single Instance (no manager)
+
+For solo testing or a single-team run — no manager needed.
+
+**BankingAI CTF:**
+```bash
+cd challenge
+docker compose up --build -d
+# Visit http://localhost
+# MySQL takes ~30s to initialise on first run
+```
+
+**SWOCTS Task 1:**
+```bash
+cd task-1
+docker compose up --build -d
+# Visit http://localhost:5000
+```
 
 **Stop:**
 ```bash
 docker compose down
 ```
 
-**Full reset** (wipes the database and starts fresh):
+**Full reset** (wipe DB/volumes and start fresh):
 ```bash
-docker compose down -v
-docker compose up --build -d
+docker compose down -v && docker compose up --build -d
 ```
 
 ---
 
-## Option B — Multi-Team with Manager
+## How the Manager Works
 
-Teams self-register at the manager portal. Each team gets their own isolated challenge instance on a unique port, provisioned automatically.
+When a team registers:
 
-### Step 1: Clone the repo
+1. Manager creates a DB entry and assigns the next free port (starting from `PORT_RANGE_START`, default 8000)
+2. Calls `docker compose up -d` via the Docker socket, injecting per-team flag values as environment variables
+3. Team dashboard shows **Starting…** and auto-refreshes every 5 seconds
+4. Manager polls the Docker socket until the web container is `running`
+5. Status flips to **Ready** — the dashboard shows a clickable link: `http://HOST_IP:PORT`
 
+**Per-team flags:** Every team's flag values are unique, derived from `FLAG_SECRET` + team name via HMAC-SHA256. Players cannot share answers between instances. Flags survive Stop/Restart — they are deterministic and always the same for a given team name + secret.
+
+```
+CTF{<slug>_<8-char hmac>}
+
+# Example for team "alpha":
+CTF{source_3a7f9c21}
+CTF{ssh_creds_b4d82f10}
+CTF{bash_history_cc482b6f}
+```
+
+To compute a team's flag value manually (e.g. for an answer sheet):
 ```bash
-git clone <repo-url> bankingai-ctf
-cd bankingai-ctf
+python3 -c "
+import hmac, hashlib
+secret  = 'your-FLAG_SECRET'
+team    = 'teamname'
+flag_id = 'FLAG_SOURCE'
+slug    = flag_id.replace('FLAG_', '').lower()
+token   = hmac.new(secret.encode(), f'{flag_id}:{team}'.encode(), hashlib.sha256).hexdigest()[:8]
+print(f'CTF{{{slug}_{token}}}')
+"
 ```
-
-### Step 2: Build the challenge image
-
-This is a **one-time step**. The manager reuses this image for every team — it does not rebuild per team.
-
-```bash
-cd challenge
-docker compose build
-cd ..
-```
-
-You should see output ending in `=> => naming to docker.io/library/ctf-web:latest`. If you don't see that image name, re-run the build.
-
-### Step 3: Configure the manager
-
-Open `manager/docker-compose.yaml` in a text editor. Fill in the required values:
-
-```yaml
-environment:
-  SECRET_KEY:       "replace-with-a-random-string"
-  ADMIN_TOKEN:      "replace-with-your-admin-password"
-  CTF_COMPOSE_FILE: "/ctf/challenge/docker-compose.yaml"   # leave exactly as-is
-  CHALLENGE_DIR:    "/absolute/host/path/to/bankingai-ctf/challenge"
-  HOST_IP:          "192.168.x.x"
-  PORT_RANGE_START: "8000"
-  FLAG_SECRET:      "replace-with-a-random-string"
-```
-
-**`SECRET_KEY`** — any random string, used to sign Flask session cookies. Generate one:
-```bash
-python3 -c "import secrets; print(secrets.token_hex(32))"
-```
-
-**`ADMIN_TOKEN`** — the password you'll use to log in to `/admin`. Pick anything secure.
-
-**`CTF_COMPOSE_FILE`** — leave this as `/ctf/challenge/docker-compose.yaml`. The compose file is bind-mounted into the manager container at that path. Do not change it.
-
-**`CHALLENGE_DIR`** — the **absolute path on the host machine** to the `challenge/` directory. The manager passes this to `docker compose --project-directory` so the Docker daemon resolves relative bind mounts (`./web/src` etc.) against the correct host paths.
-
-```
-# Example: if you cloned to /home/alice/bankingai-ctf
-CHALLENGE_DIR: "/home/alice/bankingai-ctf/challenge"
-```
-
-To find the correct value, run from the repo root:
-```bash
-realpath challenge
-```
-
-**`HOST_IP`** — the IP address or hostname shown to players in their dashboard URL (`http://HOST_IP:PORT`). Must be reachable from players' machines.
-
-> Use your LAN IP, not `127.0.0.1` — players would just get a link to their own machine.
-
-Find your LAN IP:
-```bash
-# Linux
-hostname -I | awk '{print $1}'
-
-# macOS
-ipconfig getifaddr en0
-
-# Windows (PowerShell)
-(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike "*Loopback*"} | Select-Object -First 1).IPAddress
-```
-
-**`PORT_RANGE_START`** — first port assigned to teams. Ports are assigned sequentially: team 1 gets 8000, team 2 gets 8001, etc. Make sure this range is open in your firewall.
-
-**`FLAG_SECRET`** — a random string used to generate all flags. Each team's flags are derived from this secret and their team name — so every team gets unique flags and players cannot share answers. Generate one the same way as `SECRET_KEY`:
-```bash
-python3 -c "import secrets; print(secrets.token_hex(32))"
-```
-
-> Keep `FLAG_SECRET` private. Anyone who knows it can compute every team's flags.
-
-### Step 4: Start the manager
-
-```bash
-cd manager
-docker compose up --build -d
-```
-
-The manager is now running at **http://localhost** (port 80).
-
-**Team name rules:** lowercase letters, numbers, hyphens, and underscores only (`[a-z0-9_-]`, max 32 chars). Uppercase is rejected at registration.
-
-**What happens when a team registers:**
-1. Manager creates a DB entry and assigns a port
-2. Manager calls `docker compose up -d` on the host (via the Docker socket)
-3. Team's dashboard shows "Starting…" and auto-refreshes every 5 seconds
-4. Manager polls via the Docker socket until the web container is `running`
-5. Status flips to "Ready" and the dashboard shows a clickable link: `http://HOST_IP:PORT`
-
-> The DB init (~30s) is the main source of startup delay. The auto-refresh will catch it.
-
-### Step 5: Admin panel
-
-Browse to **http://localhost/admin** and enter your `ADMIN_TOKEN`.
-
-The admin panel shows every registered team with:
-- Their assigned port and instance URL
-- Current status (starting / ready / stopped / error)
-- Score (including any first blood bonuses) and flags captured (x/5)
-- **Stop** — runs `docker compose down -v` (destroys containers + DB volume)
-- **Restart** — runs `docker compose up -d` and begins polling again
-
-> **Note:** Stop wipes the team's MySQL volume. On the next Restart the DB is re-initialised and all flags are re-injected with the **same values** — flags are deterministically derived from `FLAG_SECRET` + team name, so they never change between restarts. The team's score and submission history in the manager are not affected by Stop/Restart.
 
 ---
 
 ## Scoring & First Blood
 
-Each flag has a base point value reflecting its difficulty. The **first team** to capture a flag earns a bonus (1.2× multiplier by default).
+The **first team** to capture a flag earns a 1.2× bonus. Subsequent captures earn the base point value (positions 2–3), dropping by 1 pt per position from 4th onward (floor: 1 pt).
 
-| Flag | Difficulty | Base pts | First Blood pts |
-|------|-----------|----------|-----------------|
-| Inspect the Source | Easy | 75 | 90 |
-| Initial Access | Easy–Medium | 100 | 120 |
-| Admin Access | Medium | 125 | 150 |
-| Credential Harvester | Medium | 150 | 180 |
-| File Upload RCE | Hard | 200 | 240 |
-| **Total** | | **650** | **780** |
+**BankingAI CTF:**
 
-- **Base max:** 650 pts (no first bloods)
-- **Max possible:** 780 pts (first blood on every flag)
+| Flag | Base pts | First Blood |
+|------|----------|-------------|
+| Inspect the Source | 75 | 90 |
+| Initial Access | 100 | 120 |
+| SQL Injection | 150 | 180 |
+| User Escalation | 125 | 150 |
+| File Upload RCE | 200 | 240 |
+| **Total** | **650** | **780** |
 
-First blood is indicated by a red square (■) on the scoreboard and a "first blood" badge on the team's dashboard. The submission flash message shows the breakdown: `FIRST BLOOD! "File Upload RCE" — +240 pts (200 x 1.2)`.
+**SWOCTS — Task 1:**
 
-The scoreboard includes a **score-over-time graph** (Chart.js stepped line chart) showing each team's cumulative score as they capture flags. All timestamps are displayed in **Eastern Time** (EST/EDT).
+| Flag | Base pts | First Blood |
+|------|----------|-------------|
+| Source Code | 75 | 90 |
+| SSH Credentials | 150 | 180 |
+| Bash History | 200 | 240 |
+| **Total** | **425** | **510** |
 
-To adjust points or the multiplier, edit the `FLAGS` list in `manager/app.py` and rebuild the manager container.
+Hints are available at a point cost (unlocked sequentially per flag). The admin panel can enable/disable hints globally. Purchasing hints deducts points from the team's score.
+
+The scoreboard includes a **score-over-time graph** showing each team's cumulative score. Timestamps use the timezone configured by `TZ_NAME` in `manager/.env` (default: `America/New_York`).
 
 ---
 
-## Managing Teams Manually (no manager)
+## Admin Panel
 
-If you prefer bash scripts instead of the web portal, use the helpers in `challenge/scripts/`.
-Run all commands from the **`challenge/`** directory.
+Browse to **http://HOST_IP/admin** and enter your `ADMIN_TOKEN`.
 
-**Add a team** (auto-assigns port from 8000 upward):
+The admin panel shows every registered team with their port, status, score, and flag captures. Actions per team:
+
+- **Stop** — runs `docker compose down -v` (destroys containers + volumes)
+- **Restart** — runs `docker compose up -d` and begins polling again
+- **Reset PW** — sets a new password for the team
+- **Delete** — removes the team from the DB and destroys their containers
+
+> Stop wipes any DB volumes. On Restart the containers are re-initialised with the **same flag values** — flags are deterministic.
+
+---
+
+## Switching Challenges
+
+To change the active challenge, re-run `setup.sh` and choose the other option, then restart the manager:
+
 ```bash
-bash scripts/add_team.sh alpha
+bash setup.sh
+cd manager && docker compose down && docker compose up -d
 ```
 
-**Add a team on a specific port:**
-```bash
-bash scripts/add_team.sh bravo 8002
+Or edit `manager/.env` directly — see `manager/.env.example` for all variables. The key ones:
+
+```ini
+# BankingAI CTF
+CTF_COMPOSE_HOST_PATH=../challenge/docker-compose.yaml
+CTF_CHALLENGE_DIR=/absolute/path/to/ctf/challenge
+CTF_CONFIG_FILE=/ctf/config/bankingai.json
+CTF_NAME=BankingAI CTF
+STARTUP_TIMEOUT=180
+
+# SWOCTS Task 1
+CTF_COMPOSE_HOST_PATH=../task-1/docker-compose.yml
+CTF_CHALLENGE_DIR=/absolute/path/to/ctf/task-1
+CTF_CONFIG_FILE=/ctf/config/task1.json
+CTF_NAME=SWOCTS — Task 1
+STARTUP_TIMEOUT=30
 ```
 
-**Remove a team** (stops containers + wipes DB volume):
-```bash
-bash scripts/remove_team.sh alpha
-```
+Restart the manager after any `.env` change.
 
-**List all running team instances:**
-```bash
-bash scripts/list_teams.sh
-```
+> **Note:** Switching challenges does not wipe the manager's team database. Existing team registrations remain. If you want a clean slate, wipe `manager/data/` before restarting.
 
 ---
 
 ## Customising Flags
 
-Flag values are generated automatically — you do **not** edit `challenge/docker-compose.yaml`.
+Flag names, point values, and hints are defined in JSON files in `manager/config/`:
 
-Each flag is derived from `FLAG_SECRET` (set in `manager/docker-compose.yaml`) and the team's name:
+- `manager/config/bankingai.json` — BankingAI flags + hints
+- `manager/config/task1.json` — SWOCTS Task 1 flags + hints
 
-```
-CTF{<slug>_<8-char hmac>}
-```
+Edit the JSON and restart the manager container to pick up changes. Per-team flag *values* are always derived from `FLAG_SECRET` + team name regardless of config — the JSON controls what flags exist and how they're scored.
 
-Examples for a team named `teamalpha`:
-```
-CTF{inspected_3a7f9c21}
-CTF{login_b4d82f10}
-CTF{credential_harvester_77c1e5aa}
-CTF{admin_access_091f3c88}
-CTF{file_upload_cc482b6f}
-```
-
-Every team gets different flag values — players cannot share answers between instances.
-
-To compute any team's flag value manually (e.g. for the answer sheet):
-```bash
-python3 -c "
-import hmac, hashlib
-secret = 'your-FLAG_SECRET-value'
-team   = 'teamname'
-flag_id = 'FLAG_LOGIN'
-slug   = flag_id.replace('FLAG_', '').lower()
-token  = hmac.new(secret.encode(), f'{flag_id}:{team}'.encode(), hashlib.sha256).hexdigest()[:8]
-print(f'CTF{{{slug}_{token}}}')
-"
-```
-
-To change the flag format, change `FLAG_SECRET` in `manager/docker-compose.yaml` and restart the manager. All existing team instances must also be restarted from the admin panel so their containers pick up the new values.
+To change the flag format entirely, change `FLAG_SECRET` in `manager/.env` and restart everything (including all running team instances from the admin panel).
 
 ---
 
 ## Stopping & Resetting
 
-**Stop the manager:**
+**Stop the manager** (team instances keep running):
 ```bash
-cd manager
-docker compose down
-```
-Team instances keep running. The SQLite database persists in `manager/data/`.
-
-**Stop the manager and wipe all manager data:**
-```bash
-cd manager
-docker compose down -v
+cd manager && docker compose down
 ```
 
-**Stop a single team's instance (manual):**
+**Stop the manager and wipe all manager data** (team registrations, scores):
 ```bash
-cd challenge
-docker compose -p ctf_<teamname> down -v
+cd manager && docker compose down -v
+rm -rf manager/data/
+```
+
+**Stop a single team's instance manually:**
+```bash
+docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml down -v
 ```
 
 **Stop all team instances at once:**
 ```bash
-docker ps --filter name=ctf_ -q | xargs docker stop
-docker ps -a --filter name=ctf_ -q | xargs docker rm
-docker volume ls --filter name=ctf_ -q | xargs docker volume rm
+docker ps --filter name=ctf_ -q | xargs -r docker stop
+docker ps -a --filter name=ctf_ -q | xargs -r docker rm
+docker volume ls --filter name=ctf_ -q | xargs -r docker volume rm
 ```
 
----
-
-## Full Reset Script
-
-`reset.sh` (at the repo root) performs a complete wipe and redeploy in one command — useful between CTF rounds or when recovering from a broken state.
-
+**Full reset** (wipe all state, pull latest code + image, restart manager):
 ```bash
-bash ~/bankingai-ctf/reset.sh
+bash reset.sh
 ```
 
-What it does (in order):
-1. Removes all `ctf_*` containers
-2. Removes all `ctf_*` volumes (wipes all team DBs)
-3. Deletes `manager/data/` (wipes manager SQLite DB — all team registrations)
-4. Pulls latest code from GitHub (`git pull`)
-5. Rebuilds the challenge Docker image
-6. Rebuilds and starts the manager container
+`reset.sh` is the go-to command between test runs when changes have been pushed to GitHub. It:
+1. Removes all team containers, volumes, and stale networks
+2. Wipes `manager/data/` (registrations + scores)
+3. Runs `git pull` to get the latest code
+4. Pulls the active challenge image from GHCR and retags it locally (reads `CTF_CONFIG_FILE` from `manager/.env` to determine which image)
+5. Rebuilds and restarts the manager container
 
-> After running `reset.sh`, all teams must re-register. All scores and submissions are wiped.
+Prompts for confirmation before doing anything.
 
 ---
 
 ## Troubleshooting
 
-**Challenge page won't load after `docker compose up`**
+**Challenge page won't load (BankingAI)**
 
-The MySQL database takes up to 30 seconds to initialise on first run. Wait and refresh. Check progress:
+MySQL takes ~30 seconds to initialise on first run. Wait and refresh. To watch:
 ```bash
-docker compose logs db --follow
-# wait for: "ready for connections"
+docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml logs db --follow
+# Wait for: "ready for connections"
 ```
 
-**Manager shows a team as "starting" indefinitely**
+**Team stuck on "starting" indefinitely**
 
-Check the team's containers are actually running:
+Check containers are actually running:
 ```bash
 docker ps | grep ctf_<teamname>
 ```
 
-If containers aren't there, check manager logs:
+If containers are missing, check manager logs:
 ```bash
-cd manager && docker compose logs manager --follow
+docker logs ctf_manager
 ```
 
 Common causes:
-- `CHALLENGE_DIR` is not set or points to the wrong host path
-- The challenge image wasn't built (`cd challenge && docker compose build`)
-- Check manager logs: `docker logs ctf_manager`
+- `CTF_CHALLENGE_DIR` in `manager/.env` is wrong or not set
+- Challenge image was never pulled/built (re-run `setup.sh`)
+- Docker socket permissions
 
-**`docker compose up` in the manager fails with "image not found"**
+**"Image not found" when a team registers**
 
-The challenge image must be built on the host before the manager can use it:
+The challenge image must exist locally. Run `setup.sh` to pull it from GHCR, or build it manually:
 ```bash
+# BankingAI
 cd challenge && docker compose build
+
+# Task 1
+docker pull ghcr.io/banjomenny/simplectf/task1-web:latest
+docker tag ghcr.io/banjomenny/simplectf/task1-web:latest task-1-web:latest
 ```
-
-**Port already in use**
-
-Another process or team instance is on that port. Either stop it or change `PORT_RANGE_START`.
 
 **Teams can't reach their instance URL**
 
-- `HOST_IP` is probably set to `127.0.0.1` — change it to your LAN IP
-- Check that your firewall allows inbound TCP on the port range (default 8000+)
-- On Linux: `sudo ufw allow 8000:8100/tcp`
+- `HOST_IP` in `manager/.env` is probably `127.0.0.1` — change it to your LAN IP
+- Check firewall allows inbound TCP on your port range: `sudo ufw allow 8000:8100/tcp`
 
-**View logs for any container:**
+**View logs for a specific team's container:**
 ```bash
 docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml logs web
-docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml logs db
 ```
 
 ---
@@ -387,52 +351,51 @@ docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml logs db
 ## Repository Layout
 
 ```
-bankingai-ctf/
-│
-├── README.md                            ← you are here
-├── reset.sh                             ← full wipe + redeploy script
+ctf/
+├── setup.sh                        ← interactive setup wizard
 ├── .gitignore
 │
-├── challenge/                           ← CTF challenge (what players solve)
-│   ├── docker-compose.yaml              ← orchestrates web + db containers
-│   ├── .gitignore
-│   │
+├── challenge/                      ← BankingAI CTF (PHP + MySQL, 5 flags)
+│   ├── docker-compose.yaml
 │   ├── web/
-│   │   ├── Dockerfile                   ← PHP 8.2 + Apache image
-│   │   └── src/                         ← web root (bind-mounted; live edits)
-│   │       ├── index.php
-│   │       ├── login.php                ← prepared statement (intentional)
-│   │       ├── lookup.php               ← SQLi vulnerability (intentional)
-│   │       ├── dashboard.php            ← shows FLAG_LOGIN after login
-│   │       ├── products.php             ← FLAG_INSPECTED in HTML comment
-│   │       ├── admin_uploads.php        ← unrestricted upload (intentional)
-│   │       ├── admin_subnav.php         ← shows FLAG_USER_ESCALATION
-│   │       ├── robots.txt               ← hints at credential location
-│   │       └── staff-resources/
-│   │           └── new-employee-guide.txt  ← contains login credentials
-│   │
+│   │   ├── Dockerfile
+│   │   └── src/                    ← PHP web root (bind-mounted; live edits)
 │   ├── db/
-│   │   ├── bankingai.sql                ← MySQL 8.0 schema + seed data
-│   │   └── init_flags.sh                ← injects FLAG_SQL_INJECTION
-│   │
-│   └── scripts/                         ← manual multi-team bash helpers
-│       ├── add_team.sh
-│       ├── remove_team.sh
-│       └── list_teams.sh
+│   │   ├── bankingai.sql           ← MySQL schema + seed data
+│   │   └── init_flags.sh           ← injects FLAG_SQL_INJECTION at DB init
+│   └── scripts/                    ← manual multi-team bash helpers
 │
-└── manager/                             ← team management web app
-    ├── docker-compose.yaml              ← runs the manager container
-    ├── Dockerfile                       ← Python 3.12 + Docker CLI
-    ├── app.py                           ← Flask app: all routes + Docker logic
-    ├── requirements.txt                 ← flask, bcrypt
-    ├── .gitignore
-    └── templates/
-        ├── base.html                    ← dark terminal theme + shared CSS
-        ├── index.html                   ← tabbed register / login card
-        ├── dashboard.html               ← team's instance URL, flag grid, score
-        ├── scoreboard.html              ← public ranked scoreboard + time graph
-        ├── admin.html                   ← all teams table with stop/restart
-        └── admin_login.html             ← token prompt
+├── task-1/                         ← SWOCTS Task 1 (Python Flask, 3 flags)
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   ├── app.py
+│   ├── generate_artifacts.py       ← builds static/files.zip (run before build)
+│   ├── requirements.txt
+│   ├── static/
+│   └── templates/
+│
+├── manager/                        ← team management web app
+│   ├── docker-compose.yaml
+│   ├── .env.example                ← copy to .env and fill in values
+│   ├── Dockerfile
+│   ├── app.py                      ← Flask: all routes, Docker helpers, scoring
+│   ├── requirements.txt
+│   ├── config/
+│   │   ├── bankingai.json          ← BankingAI flags + hints config
+│   │   └── task1.json              ← SWOCTS Task 1 flags + hints config
+│   └── templates/
+│       ├── base.html
+│       ├── index.html              ← register / login
+│       ├── dashboard.html          ← instance URL, flag grid, score
+│       ├── hints.html              ← sequential hints (purchasable)
+│       ├── scoreboard.html         ← public ranked scoreboard + time graph
+│       ├── admin.html              ← team management table
+│       └── admin_login.html
+│
+└── .github/
+    └── workflows/
+        ├── publish-bankingai.yml   ← auto-publishes bankingai-web:latest to GHCR
+        └── publish-task1.yml       ← auto-publishes task1-web:latest to GHCR
 ```
 
 ---

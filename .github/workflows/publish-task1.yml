@@ -1,0 +1,29 @@
+name: Publish Task-1 image
+on:
+  push:
+    branches: [main]
+    paths: [task-1/**]
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate artifacts (files.zip)
+        run: |
+          pip install Pillow piexif
+          cd task-1 && python generate_artifacts.py
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./task-1
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/simplectf/task1-web:latest

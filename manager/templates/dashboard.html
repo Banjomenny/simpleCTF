@@ -92,7 +92,7 @@
   <div class="score-block">
     <h3 style="margin-bottom:.4rem;">Score</h3>
     <span class="score-num">{{ score }}</span>
-    <span class="score-denom">/ {{ max_score }} pts</span>
+    {% if max_score %}<span class="score-denom">/ {{ max_score }} pts</span>{% endif %}
     {% if hint_cost > 0 %}
       <span class="score-denom" style="color:var(--amber);margin-left:.5rem;">(-{{ hint_cost }} deductions)</span>
     {% endif %}
@@ -111,6 +111,7 @@
   </div>
   {% endif %}
 
+  {% if flags %}
   <!-- Flags -->
   <h2>Flags</h2>
   <table style="margin-bottom:1.75rem;">
@@ -179,6 +180,7 @@
     <input id="flag-input" type="text" name="flag" placeholder="CTF{...}" autocomplete="off" required>
     <button type="submit">Submit</button>
   </form>
+  {% endif %}
 
 </div>
 {% endblock %}

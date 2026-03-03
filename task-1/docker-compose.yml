@@ -1,0 +1,11 @@
+version: '3'
+services:
+  web:
+    image: task-1-web:latest
+    ports:
+      - "${PORT:-5000}:5000"
+    restart: always
+    environment:
+      FLAG_SOURCE:      ${FLAG_SOURCE:-CTF{s0urc3_c0d3_r3v34l5_s3cr3ts}}
+      FLAG_SSH_CREDS:   ${FLAG_SSH_CREDS:-CTF{m3t4d4t4_4nd_b4s364_ftw}}
+      FLAG_BASH_HISTORY: ${FLAG_BASH_HISTORY:-CTF{bash_h1st0ry_is_n0t_s3cur3}}

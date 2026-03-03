@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Administration | Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 0.9rem;
+            overflow-x: hidden;
+        }
+
+        .navbar-dark {
+            background-color: #343a40;
+            border-bottom: 1px solid #4b545c;
+            height: 60px;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 60px;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            width: 240px;
+            background-color: #343a40;
+            color: #c2c7d0;
+        }
+        
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 60px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto; 
+        }
+
+        .nav-link {
+            color: #c2c7d0;
+            padding: 10px 20px;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255,255,255,.1);
+        }
+        
+        .nav-link.active {
+            color: #fff;
+            background-color: #007bff;
+            border-radius: 0;
+        }
+        
+        .sidebar-heading {
+            font-size: .75rem;
+            text-transform: uppercase;
+            color: #6c757d;
+            padding: 10px 20px;
+            margin-top: 10px;
+        }
+
+        main {
+            margin-left: 240px;
+            padding: 20px;
+            margin-top: 60px;
+        }
+
+        .card {
+            border: none;
+            box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2);
+            margin-bottom: 20px;
+            border-radius: 0.25rem;
+            border-top: 3px solid #d2d6de;
+        }
+        
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid #f4f4f4;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .card-primary { border-top-color: #007bff; }
+        .card-success { border-top-color: #28a745; }
+        .card-warning { border-top-color: #ffc107; }
+
+        .small-box {
+            border-radius: 0.25rem;
+            position: relative;
+            display: block;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            color: #fff;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        .small-box h3 { font-size: 2.2rem; font-weight: 700; margin: 0; }
+        .small-box p { font-size: 1rem; margin: 0; }
+        .small-box .icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 60px;
+            opacity: 0.2;
+            transition: all 0.3s;
+        }
+        .small-box:hover .icon { font-size: 70px; opacity: 0.4; }
+        
+        .bg-info { background-color: #17a2b8 !important; }
+        .bg-success { background-color: #28a745 !important; }
+        .bg-warning { background-color: #ffc107 !important; color: #1f2d3d !important; }
+        .bg-danger { background-color: #dc3545 !important; }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border: 1px solid #e2e6ea;
+            background: #fff;
+            color: #495057;
+            text-decoration: none;
+            margin-bottom: 10px;
+            border-left: 4px solid transparent;
+            transition: 0.2s;
+        }
+        .btn-action:hover {
+            background: #f8f9fa;
+            border-left-color: #007bff;
+            color: #007bff;
+            transform: translateX(5px);
+        }
+        .btn-icon {
+            font-size: 24px;
+            color: #adb5bd;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark fixed-top flex-md-nowrap p-0 shadow">
+        <a class="navbar-brand col-sm-3 col-md-2 mr-0 px-3" href="#">
+            <i class="fas fa-server me-2"></i> SysAdmin<span style="font-weight: 300">Panel</span>
+        </a>
+        <ul class="navbar-nav px-3 ms-auto d-flex flex-row">
+            <li class="nav-item text-nowrap me-3">
+                <a class="nav-link" href="#"><i class="fas fa-bell"></i></a>
+            </li>
+            <li class="nav-item text-nowrap">
+                <a class="nav-link text-danger" href="/"><i class="fas fa-sign-out-alt"></i> Sign out</a>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            
+            <nav class="col-md-2 d-none d-md-block sidebar">
+                <div class="sidebar-sticky">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/dashboard"> <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/packages">
+                                <i class="fas fa-box me-2"></i> Packages
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/users">
+                                <i class="fas fa-users me-2"></i> Users
+                            </a>
+                        </li>
+                        
+                        <h6 class="sidebar-heading">Maintenance</h6>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/backups">
+                                <i class="fas fa-hdd me-2"></i> Backups
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/logs">
+                                <i class="fas fa-file-alt me-2"></i> Logs
+                            </a>
+                        </li>
+                        
+                        <h6 class="sidebar-heading">System</h6>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/ssh_client"> <i class="fas fa-terminal me-2"></i> Terminal
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/settings">
+                                <i class="fas fa-cog me-2"></i> Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main role="main" class="col-md-9 ms-sm-auto col-lg-10">
+                
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+                    <h1 class="h3">System Overview</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="text-muted">
+                            <i class="far fa-calendar-alt me-1"></i> Today: 2026-02-09
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-info">
+                            <div class="inner">
+                                <h3 id="cpu-val">12%</h3>
+                                <p>CPU Load</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-microchip"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-success">
+                            <div class="inner">
+                                <h3>99.9%</h3>
+                                <p>Uptime</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-server"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-warning">
+                            <div class="inner">
+                                <h3>4</h3>
+                                <p>User Alerts</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-user-plus"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-danger">
+                            <div class="inner">
+                                <h3>1</h3>
+                                <p>Security Patch</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-shield-alt"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-8">
+                        
+                        <div class="card card-primary">
+                            <div class="card-header">
+                                <i class="fas fa-tools me-1"></i> Quick Management
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-4">Common administrative tasks and system recovery options.</p>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <a href="/download" class="btn-action">
+                                            <div>
+                                                <div class="fw-bold text-dark">Download Full Backup</div>
+                                                <small class="text-muted">backup_daily_2026.zip (24 MB)</small>
+                                            </div>
+                                            <i class="fas fa-file-archive btn-icon text-primary"></i>
+                                        </a>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <a href="/ssh_client" class="btn-action">
+                                            <div>
+                                                <div class="fw-bold text-dark">Web Shell Access</div>
+                                                <small class="text-muted">Direct SSH connection (Port 22)</small>
+                                            </div>
+                                            <i class="fas fa-terminal btn-icon text-dark"></i>
+                                        </a>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <a href="#" class="btn-action" style="opacity: 0.6; cursor: not-allowed">
+                                            <div>
+                                                <div class="fw-bold text-dark">Restart Services</div>
+                                                <small class="text-muted">Requires root privileges</small>
+                                            </div>
+                                            <i class="fas fa-sync btn-icon text-muted"></i>
+                                        </a>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <a href="#" class="btn-action" style="opacity: 0.6; cursor: not-allowed">
+                                            <div>
+                                                <div class="fw-bold text-dark">Firewall Config</div>
+                                                <small class="text-muted">Manage iptables rules</small>
+                                            </div>
+                                            <i class="fas fa-network-wired btn-icon text-muted"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card card-success">
+                            <div class="card-header">
+                                <i class="fas fa-list-alt me-1"></i> System Logs
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-striped mb-0" style="font-size: 0.85rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Service</th>
+                                            <th>Message</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>2026-02-09 09:00:01</td>
+                                            <td>CRON</td>
+                                            <td>(root) CMD (backup_script.sh)</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-02-09 09:00:05</td>
+                                            <td>backup</td>
+                                            <td>Archive created successfully: /var/backups/files.zip</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-02-09 09:05:12</td>
+                                            <td>sshd</td>
+                                            <td>Accepted publickey for sysadmin from 192.168.1.5</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-02-09 09:15:00</td>
+                                            <td>systemd</td>
+                                            <td>Starting Cleanup of Temporary Directories...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card card-warning">
+                            <div class="card-header">
+                                <i class="fas fa-info-circle me-1"></i> Server Information
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Hostname
+                                        <span class="badge bg-secondary rounded-pill">server-01</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        IP Address
+                                        <span class="text-muted">10.0.0.5</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        OS
+                                        <span class="text-muted">Ubuntu 20.04</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Kernel
+                                        <span class="text-muted">5.4.0-153</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-light border shadow-sm">
+                            <h6 class="alert-heading"><i class="fas fa-lightbulb text-warning"></i> Admin Tip</h6>
+                            <p class="mb-0 small text-muted">
+                                Regular backups are stored in the <code>/static</code> directory. 
+                                Use the Web Shell for manual file restoration if the automated tool fails.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cpuElement = document.getElementById('cpu-val');
+            
+            function updateCPU() {
+                const randomLoad = Math.floor(Math.random() * (32 - 3 + 1)) + 3;
+                cpuElement.innerText = randomLoad + '%';
+            }
+
+            setInterval(updateCPU, 5000);
+        });
+    </script>
+</body>
+</html>

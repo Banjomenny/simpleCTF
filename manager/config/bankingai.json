@@ -1,0 +1,26 @@
+{
+  "ctf_name": "BankingAI CTF",
+  "flag_name_cost": 5,
+  "flags": [
+    {"id":"FLAG_INSPECTED",       "name":"Inspect the Source",  "points": 75,  "fb_multiplier":1.2},
+    {"id":"FLAG_LOGIN",           "name":"Initial Access",       "points":100,  "fb_multiplier":1.2},
+    {"id":"FLAG_SQL_INJECTION",   "name":"SQL Injection",        "points":150,  "fb_multiplier":1.2},
+    {"id":"FLAG_USER_ESCALATION", "name":"User Escalation",      "points":125,  "fb_multiplier":1.2},
+    {"id":"FLAG_FILE_UPLOAD",     "name":"File Upload RCE",      "points":200,  "fb_multiplier":1.2}
+  ],
+  "hints": [
+    {"id":1,"flag_id":"FLAG_INSPECTED","order":1,"cost":10,"text":"Something is hidden in plain sight on one of the public pages."},
+    {"id":2,"flag_id":"FLAG_INSPECTED","order":2,"cost":25,"text":"View the HTML source of the Products page (Ctrl+U)."},
+    {"id":3,"flag_id":"FLAG_LOGIN","order":1,"cost":15,"text":"Web servers often tell crawlers which paths to avoid. Have you checked?"},
+    {"id":4,"flag_id":"FLAG_LOGIN","order":2,"cost":30,"text":"Check /robots.txt — then follow the disallowed path."},
+    {"id":5,"flag_id":"FLAG_LOGIN","order":3,"cost":50,"text":"The staff resources directory contains an onboarding document with default credentials."},
+    {"id":6,"flag_id":"FLAG_SQL_INJECTION","order":1,"cost":20,"text":"After login, one page lets you search for staff. Does it sanitise input?"},
+    {"id":7,"flag_id":"FLAG_SQL_INJECTION","order":2,"cost":45,"text":"The lookup page builds a SQL LIKE query directly from the search field — no sanitisation."},
+    {"id":8,"flag_id":"FLAG_SQL_INJECTION","order":3,"cost":70,"text":"Try a UNION SELECT to dump the users table: ' UNION SELECT username,password,3,4,5 FROM users-- -"},
+    {"id":9,"flag_id":"FLAG_USER_ESCALATION","order":1,"cost":20,"text":"The users table contains credentials for other accounts, not just employees."},
+    {"id":10,"flag_id":"FLAG_USER_ESCALATION","order":2,"cost":45,"text":"The password column is unsalted MD5. Crack it with rockyou.txt."},
+    {"id":11,"flag_id":"FLAG_FILE_UPLOAD","order":1,"cost":25,"text":"The admin panel has a file management section. Does it validate what you upload?"},
+    {"id":12,"flag_id":"FLAG_FILE_UPLOAD","order":2,"cost":55,"text":"The upload feature accepts any file type. A PHP script will execute on the server."},
+    {"id":13,"flag_id":"FLAG_FILE_UPLOAD","order":3,"cost":80,"text":"Uploaded files are served from /uploads/. A PHP webshell with ?cmd=cat+/flag.txt will read the flag."}
+  ]
+}

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logs | SysAdminPanel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 0.9rem; overflow-x: hidden; }
+        .navbar-dark { background-color: #343a40; border-bottom: 1px solid #4b545c; height: 60px; }
+        .sidebar { position: fixed; top: 60px; bottom: 0; left: 0; z-index: 100; padding: 0; box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1); width: 240px; background-color: #343a40; color: #c2c7d0; }
+        .sidebar-sticky { position: relative; top: 0; height: calc(100vh - 60px); padding-top: .5rem; overflow-x: hidden; overflow-y: auto; }
+        .nav-link { color: #c2c7d0; padding: 10px 20px; font-weight: 500; }
+        .nav-link:hover { color: #fff; background-color: rgba(255,255,255,.1); }
+        .nav-link.active { color: #fff; background-color: #007bff; border-radius: 0; }
+        .sidebar-heading { font-size: .75rem; text-transform: uppercase; color: #6c757d; padding: 10px 20px; margin-top: 10px; }
+        main { margin-left: 240px; padding: 20px; margin-top: 60px; }
+        .card { border: none; box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2); margin-bottom: 20px; border-radius: 0.25rem; border-top: 3px solid #d2d6de; }
+        .card-header { background-color: #fff; border-bottom: 1px solid #f4f4f4; font-weight: 600; color: #444; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark fixed-top flex-md-nowrap p-0 shadow">
+        <a class="navbar-brand col-sm-3 col-md-2 mr-0 px-3" href="#"><i class="fas fa-server me-2"></i> SysAdmin<span style="font-weight: 300">Panel</span></a>
+        <ul class="navbar-nav px-3 ms-auto d-flex flex-row">
+            <li class="nav-item text-nowrap"><a class="nav-link text-danger" href="/"><i class="fas fa-sign-out-alt"></i> Sign out</a></li>
+        </ul>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-2 d-none d-md-block sidebar">
+                <div class="sidebar-sticky">
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><a class="nav-link" href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i> Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/packages"><i class="fas fa-box me-2"></i> Packages</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/users"><i class="fas fa-users me-2"></i> Users</a></li>
+                        <h6 class="sidebar-heading">Maintenance</h6>
+                        <li class="nav-item"><a class="nav-link" href="/backups"><i class="fas fa-hdd me-2"></i> Backups</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="/logs"><i class="fas fa-file-alt me-2"></i> Logs</a></li>
+                        <h6 class="sidebar-heading">System</h6>
+                        <li class="nav-item"><a class="nav-link" href="/ssh_client"><i class="fas fa-terminal me-2"></i> Terminal</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/settings"><i class="fas fa-cog me-2"></i> Settings</a></li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main role="main" class="col-md-9 ms-sm-auto col-lg-10">
+                <h1 class="h3 mb-4">System Logs</h1>
+                
+                <div class="card bg-dark text-light font-monospace">
+                    <div class="card-body" style="height: 500px; overflow-y: scroll;">
+                        <span class="text-muted">Feb 09 08:15:01</span> server CRON[112]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)<br>
+                        <span class="text-muted">Feb 09 09:00:01</span> server CRON[220]: (root) CMD (backup_script.sh)<br>
+                        <span class="text-success">Feb 09 09:00:05</span> server backup-tool: Backup created at /static/files.zip<br>
+                        <span class="text-muted">Feb 09 09:17:01</span> server CRON[301]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)<br>
+                        <span class="text-warning">Feb 09 10:42:22</span> server sshd[1042]: Invalid user admin from 192.168.1.44<br>
+                        <span class="text-warning">Feb 09 10:42:24</span> server sshd[1042]: Connection closed by invalid user admin 192.168.1.44 port 44422 [preauth]<br>
+                        <span class="text-danger">Feb 09 10:45:00</span> server kernel: [ 1234.567890] UFW BLOCK IN=eth0 OUT= MAC=00:00:00:00:00:00 SRC=10.0.0.1 DST=10.0.0.5 PROTO=TCP SPT=443 DPT=55555<br>
+                        <span class="text-muted">Feb 09 11:00:01</span> server systemd[1]: Started Session 42 of user webadmin.<br>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

@@ -42,7 +42,7 @@
         <th>Port</th>
         <th>Status</th>
         <th>Score</th>
-        <th>Flags</th>
+        {% if flags %}<th>Flags</th>{% endif %}
         <th>Registered</th>
         <th>Actions</th>
       </tr>
@@ -55,7 +55,7 @@
         <td class="mono">{{ team.port }}</td>
         <td><span class="badge {{ team.status }}">{{ team.status }}</span></td>
         <td class="mono" style="color:var(--green); font-weight:700;">{{ team.score }}</td>
-        <td class="muted">{{ team.captures }}/5</td>
+        {% if flags %}<td class="muted">{{ team.captures }}/{{ flags|length }}</td>{% endif %}
         <td class="muted mono" style="font-size:.78rem;">{{ team.created_at }}</td>
         <td>
           <div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;">
