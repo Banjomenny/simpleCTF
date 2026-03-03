@@ -12,6 +12,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Set lowercase image tag
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/simplectf/task1-web:latest" >> $GITHUB_ENV
       - name: Generate artifacts (files.zip)
         run: |
           pip install Pillow piexif
@@ -27,4 +29,4 @@ jobs:
         with:
           context: ./task-1
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/simplectf/task1-web:latest
+          tags: ${{ env.IMAGE }}
