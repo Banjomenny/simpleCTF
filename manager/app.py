@@ -79,7 +79,7 @@ def _ts_to_est(ts_str: str) -> str:
     dt = datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc).astimezone(TZ)
     return dt.strftime('%Y-%m-%d %H:%M %Z')
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'manager.db')
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'manager.db')
 
 # ---------------------------------------------------------------------------
 # Flag config

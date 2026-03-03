@@ -68,6 +68,7 @@ fi
 # ── 4. Wipe manager database ──────────────────────────────────────────────────
 echo "[4/7] Wiping manager database (registrations + scores)..."
 rm -rf "$REPO_DIR/manager/data/"
+mkdir -p "$REPO_DIR/manager/data"
 echo "      Done."
 
 # ── 5. Pull latest code ───────────────────────────────────────────────────────
