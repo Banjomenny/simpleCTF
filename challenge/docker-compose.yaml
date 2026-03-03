@@ -44,6 +44,3 @@ volumes:
 networks:
   ctf_internal:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.70.0/24
