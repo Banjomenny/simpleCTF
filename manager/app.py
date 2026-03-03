@@ -452,11 +452,23 @@ def docker_up(team_name: str, port: int):
 
 def docker_down(team_name: str, port: int):
     """Stop and wipe CTF containers + volumes for a team."""
+    project = f'ctf_{team_name.lower()}'
     subprocess.run(
         _compose_cmd(team_name) + ['down', '-v'],
         env=_compose_env(port, team_name),
         check=False,
     )
+    # Explicitly remove any networks that compose down may have left behind.
+    # Stale bridge interfaces accumulate iptables rules and can exhaust the
+    # host's bridge/route table, making the VM unreachable via ping.
+    result = subprocess.run(
+        ['docker', 'network', 'ls', '--filter', f'name={project}',
+         '--format', '{{.ID}}'],
+        capture_output=True, text=True,
+    )
+    for net_id in result.stdout.split():
+        subprocess.run(['docker', 'network', 'rm', net_id],
+                       capture_output=True, check=False)
 
 
 def _web_container_state(team_name: str) -> str:
@@ -550,7 +562,7 @@ def index():
 
 
 @app.route('/register', methods=['POST'])
-@limiter.limit("5 per hour")
+@limiter.limit("15 per hour")
 def register():
     name      = request.form.get('name', '').strip()
     password  = request.form.get('password', '')
@@ -588,7 +600,7 @@ def register():
 
 
 @app.route('/login', methods=['POST'])
-@limiter.limit("20 per minute")
+@limiter.limit("30 per minute")
 def login():
     name     = request.form.get('name', '').strip()
     password = request.form.get('password', '').encode()

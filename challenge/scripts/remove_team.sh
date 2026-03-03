@@ -24,6 +24,11 @@ docker compose \
     -f "$COMPOSE_FILE" \
     down -v
 
+# Remove any networks compose down left behind (stale bridges accumulate
+# iptables rules and can make the VM unreachable if enough pile up).
+docker network ls --filter "name=${PROJECT_NAME}" --format '{{.ID}}' \
+    | xargs -r docker network rm 2>/dev/null || true
+
 echo "Team '$TEAM' Docker instance removed."
 
 # ── Manager DB cleanup ───────────────────────────────────────────────────────
