@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths: [task-1/**]
+  workflow_dispatch:
 
 jobs:
   build-push:

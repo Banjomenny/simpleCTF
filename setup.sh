@@ -6,8 +6,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "=== simpleCTF Setup Wizard ==="
 echo ""
 echo "Which CTF would you like to run?"
-echo "  1) BankingAI CTF  (PHP, MySQL, 5 flags)"
-echo "  2) SWO CTF Task-1 (Python Flask, 3 flags)"
+echo "  1) BankingAI CTF        (PHP, MySQL, 5 flags)"
+echo "  2) SWOCTS — Task 1      (Python Flask, 3 flags)"
 read -rp "Choice [1/2]: " CTF_CHOICE
 
 read -rp "HOST_IP (IP or hostname players connect to): " HOST_IP
@@ -38,12 +38,28 @@ else
     LOCAL_TAG="ctf-web:latest"
 fi
 
+# ── Pull from GHCR, fall back to local build ─────────────────────────────────
 echo ""
 echo "Pulling challenge image from ghcr.io..."
-docker pull "$GHCR_IMAGE"
-docker tag "$GHCR_IMAGE" "$LOCAL_TAG"
-echo "Tagged $GHCR_IMAGE → $LOCAL_TAG"
+if docker pull "$GHCR_IMAGE" 2>/dev/null; then
+    docker tag "$GHCR_IMAGE" "$LOCAL_TAG"
+    echo "Tagged $GHCR_IMAGE → $LOCAL_TAG"
+else
+    echo "GHCR pull failed (image may not be published yet) — building locally..."
+    if [[ "$CTF_CHOICE" == "2" ]]; then
+        echo "Generating task-1 artifacts (requires Pillow + piexif)..."
+        pip3 install --quiet Pillow piexif
+        python3 "$REPO_DIR/task-1/generate_artifacts.py"
+        docker compose -f "$REPO_DIR/task-1/docker-compose.yml" \
+                       --project-directory "$REPO_DIR/task-1" build
+    else
+        docker compose -f "$REPO_DIR/challenge/docker-compose.yaml" \
+                       --project-directory "$REPO_DIR/challenge" build
+    fi
+    echo "Built $LOCAL_TAG locally."
+fi
 
+# ── Write manager/.env ────────────────────────────────────────────────────────
 cat > "$REPO_DIR/manager/.env" <<EOF
 SECRET_KEY=$SECRET_KEY
 ADMIN_TOKEN=$ADMIN_TOKEN

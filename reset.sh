@@ -9,7 +9,7 @@
 #   3. Removes any stale ctf_* networks
 #   4. Deletes manager/data/ (wipes SQLite DB — registrations + scores)
 #   5. git pull (latest code)
-#   6. Pulls the active challenge image from GHCR and retags it locally
+#   6. Pulls the active challenge image from GHCR (falls back to local build)
 #   7. Rebuilds + restarts the manager container
 #
 # Usage (from anywhere):
@@ -75,10 +75,10 @@ echo "[5/7] Pulling latest code from GitHub..."
 git -C "$REPO_DIR" pull
 echo "      Done."
 
-# ── 6. Pull latest challenge image from GHCR ─────────────────────────────────
+# ── 6. Pull latest challenge image from GHCR (fall back to local build) ───────
 # Determine which challenge is active from manager/.env (CTF_CONFIG_FILE).
 # Falls back to BankingAI if .env is missing or the variable isn't set.
-echo "[6/7] Pulling latest challenge image from GHCR..."
+echo "[6/7] Updating challenge image..."
 CTF_CONFIG_FILE_VAL=""
 if [[ -f "$ENV_FILE" ]]; then
     CTF_CONFIG_FILE_VAL=$(grep -E "^CTF_CONFIG_FILE=" "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true)
@@ -87,14 +87,30 @@ fi
 if [[ "$CTF_CONFIG_FILE_VAL" == *"task1"* ]]; then
     GHCR_IMAGE="ghcr.io/banjomenny/simplectf/task1-web:latest"
     LOCAL_TAG="task-1-web:latest"
+    BUILD_COMPOSE="$REPO_DIR/task-1/docker-compose.yml"
+    BUILD_DIR="$REPO_DIR/task-1"
+    IS_TASK1=true
 else
     GHCR_IMAGE="ghcr.io/banjomenny/simplectf/bankingai-web:latest"
     LOCAL_TAG="ctf-web:latest"
+    BUILD_COMPOSE="$REPO_DIR/challenge/docker-compose.yaml"
+    BUILD_DIR="$REPO_DIR/challenge"
+    IS_TASK1=false
 fi
 
-docker pull "$GHCR_IMAGE"
-docker tag  "$GHCR_IMAGE" "$LOCAL_TAG"
-echo "      Tagged $GHCR_IMAGE → $LOCAL_TAG"
+if docker pull "$GHCR_IMAGE" 2>/dev/null; then
+    docker tag "$GHCR_IMAGE" "$LOCAL_TAG"
+    echo "      Tagged $GHCR_IMAGE → $LOCAL_TAG"
+else
+    echo "      GHCR pull failed — building locally from $BUILD_DIR..."
+    if [[ "$IS_TASK1" == true ]]; then
+        echo "      Generating task-1 artifacts (requires Pillow + piexif)..."
+        pip3 install --quiet Pillow piexif
+        python3 "$BUILD_DIR/generate_artifacts.py"
+    fi
+    docker compose -f "$BUILD_COMPOSE" --project-directory "$BUILD_DIR" build
+    echo "      Built $LOCAL_TAG locally."
+fi
 
 # ── 7. Rebuild + restart manager ──────────────────────────────────────────────
 echo "[7/7] Rebuilding and restarting manager..."
