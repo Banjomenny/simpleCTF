@@ -48,7 +48,8 @@ else
     echo "GHCR pull failed (image may not be published yet) — building locally..."
     if [[ "$CTF_CHOICE" == "2" ]]; then
         echo "Generating task-1 artifacts (requires Pillow + piexif)..."
-        python3 -m pip install --quiet Pillow piexif
+        python3 -m pip install --quiet --user Pillow piexif 2>/dev/null || \
+        python3 -m pip install --quiet --user --break-system-packages Pillow piexif
         python3 "$REPO_DIR/task-1/generate_artifacts.py"
         docker compose -f "$REPO_DIR/task-1/docker-compose.yml" \
                        --project-directory "$REPO_DIR/task-1" build

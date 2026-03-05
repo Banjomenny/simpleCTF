@@ -106,7 +106,8 @@ else
     echo "      GHCR pull failed — building locally from $BUILD_DIR..."
     if [[ "$IS_TASK1" == true ]]; then
         echo "      Generating task-1 artifacts (requires Pillow + piexif)..."
-        python3 -m pip install --quiet Pillow piexif
+        python3 -m pip install --quiet --user Pillow piexif 2>/dev/null || \
+        python3 -m pip install --quiet --user --break-system-packages Pillow piexif
         python3 "$BUILD_DIR/generate_artifacts.py"
     fi
     docker compose -f "$BUILD_COMPOSE" --project-directory "$BUILD_DIR" build
