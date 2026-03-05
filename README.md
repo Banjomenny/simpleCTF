@@ -65,7 +65,7 @@ cd ctf
 ### 2. Run the setup wizard
 
 ```bash
-bash setup.sh
+sudo bash setup.sh
 ```
 
 The wizard will:
