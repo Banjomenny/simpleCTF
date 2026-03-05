@@ -40,8 +40,8 @@ fi
 
 # ── Pull from GHCR, fall back to local build ─────────────────────────────────
 echo ""
-echo "Pulling challenge image from ghcr.io..."
-if docker pull "$GHCR_IMAGE" 2>/dev/null; then
+echo "Pulling challenge image: $GHCR_IMAGE"
+if docker pull "$GHCR_IMAGE"; then
     docker tag "$GHCR_IMAGE" "$LOCAL_TAG"
     echo "Tagged $GHCR_IMAGE → $LOCAL_TAG"
 else

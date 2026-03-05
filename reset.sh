@@ -99,7 +99,7 @@ else
     IS_TASK1=false
 fi
 
-if docker pull "$GHCR_IMAGE" 2>/dev/null; then
+if docker pull "$GHCR_IMAGE"; then
     docker tag "$GHCR_IMAGE" "$LOCAL_TAG"
     echo "      Tagged $GHCR_IMAGE → $LOCAL_TAG"
 else
