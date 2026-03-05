@@ -44,6 +44,7 @@ logging.basicConfig(level=logging.INFO,
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
+app.config['SESSION_COOKIE_NAME'] = 'ctf_mgr_session'
 
 csrf    = CSRFProtect(app)
 limiter = Limiter(get_remote_address, app=app,
