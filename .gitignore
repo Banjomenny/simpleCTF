@@ -36,3 +36,9 @@ manager/.env
 
 # Task-1 generated artifact (built at image publish time)
 task-1/static/files.zip
+
+# Patient Portal — local run artifacts and answer key
+patient-portal/flag.txt
+patient-portal/venv/
+patient-portal/__pycache__/
+patient-portal/ANSWER_SHEET.md

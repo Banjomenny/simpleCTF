@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Contact{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Contact {{ clinic.name }}</h1>
+  <dl>
+    <dt>Address</dt><dd>{{ clinic.address }}</dd>
+    <dt>Phone</dt><dd>{{ clinic.phone }}</dd>
+    <dt>Fax</dt><dd>{{ clinic.fax }}</dd>
+    <dt>Email</dt><dd>{{ clinic.email }}</dd>
+    <dt>Hours</dt><dd>{{ clinic.hours }}</dd>
+  </dl>
+</div>
+<div class="card">
+  <h2>Departments</h2>
+  <ul class="cols">{% for d in departments %}<li>{{ d }}</li>{% endfor %}</ul>
+</div>
+{% endblock %}

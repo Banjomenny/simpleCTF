@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Billing{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Billing &amp; statements</h1>
+  <p class="muted">Current balance due: <strong>${{ '%.2f'|format(balance) }}</strong></p>
+  <table>
+    <thead><tr><th>Invoice</th><th>Date</th><th>Description</th><th>Amount</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for i in invoices %}
+      <tr><td>{{ i.id }}</td><td>{{ i.date }}</td><td>{{ i.description }}</td><td>${{ '%.2f'|format(i.amount) }}</td>
+      <td><span class="badge {{ 'badge-ok' if i.status == 'Paid' else 'badge-due' }}">{{ i.status }}</span></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">Online payment is unavailable in this demo. Please call {{ clinic.phone }} to pay a balance.</p>
+</div>
+{% endblock %}

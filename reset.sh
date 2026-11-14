@@ -85,7 +85,13 @@ if [[ -f "$ENV_FILE" ]]; then
     CTF_CONFIG_FILE_VAL=$(grep -E "^CTF_CONFIG_FILE=" "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true)
 fi
 
-if [[ "$CTF_CONFIG_FILE_VAL" == *"task1"* ]]; then
+if [[ "$CTF_CONFIG_FILE_VAL" == *"patientportal"* ]]; then
+    GHCR_IMAGE="ghcr.io/banjomenny/simplectf/patientportal-web:latest"
+    LOCAL_TAG="patient-portal-web:latest"
+    BUILD_COMPOSE="$REPO_DIR/patient-portal/docker-compose.yml"
+    BUILD_DIR="$REPO_DIR/patient-portal"
+    IS_TASK1=false
+elif [[ "$CTF_CONFIG_FILE_VAL" == *"task1"* ]]; then
     GHCR_IMAGE="ghcr.io/banjomenny/simplectf/task1-web:latest"
     LOCAL_TAG="task-1-web:latest"
     BUILD_COMPOSE="$REPO_DIR/task-1/docker-compose.yml"

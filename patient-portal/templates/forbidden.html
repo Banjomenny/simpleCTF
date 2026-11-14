@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Access denied{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <h1>Access denied</h1>
+  <p>This area is restricted to clinic staff. Your session role is <strong>{{ claims.role }}</strong>; the role <code>admin</code> is required.</p>
+  <a class="btn" href="{{ url_for('dashboard') }}">Back to dashboard</a>
+</div>
+{% endblock %}

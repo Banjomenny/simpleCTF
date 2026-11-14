@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    image: patient-portal-web:latest
+    ports:
+      - "${PORT:-5001}:5000"
+    restart: always
+    environment:
+      FLAG_IDOR: ${FLAG_IDOR:-CTF{1d0r_r3c0rds_l34k}}
+      FLAG_JWT:  ${FLAG_JWT:-CTF{w34k_jwt_s3cr3t}}
+      FLAG_SSTI: ${FLAG_SSTI:-CTF{t3mpl4t3_1nj3ct10n}}
+      FLAG_RCE:  ${FLAG_RCE:-CTF{r3m0t3_c0d3_v14_sst1}}

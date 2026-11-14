@@ -8,7 +8,8 @@ echo ""
 echo "Which CTF would you like to run?"
 echo "  1) BankingAI CTF        (PHP, MySQL, 5 flags)"
 echo "  2) SWOCTS — Task 1      (Python Flask, 3 flags)"
-read -rp "Choice [1/2]: " CTF_CHOICE
+echo "  3) MediVault Portal     (Python Flask, 4 flags, medium-hard)"
+read -rp "Choice [1/2/3]: " CTF_CHOICE
 
 read -rp "HOST_IP (IP or hostname players connect to): " HOST_IP
 read -rp "PORT_RANGE_START [8000]: " PORT_START
@@ -18,7 +19,16 @@ SECRET_KEY=$(openssl rand -hex 16)
 ADMIN_TOKEN=$(openssl rand -hex 16)
 FLAG_SECRET=$(openssl rand -hex 16)
 
-if [[ "$CTF_CHOICE" == "2" ]]; then
+if [[ "$CTF_CHOICE" == "3" ]]; then
+    CTF_COMPOSE_HOST_PATH="../patient-portal/docker-compose.yml"
+    CTF_CHALLENGE_DIR="$REPO_DIR/patient-portal"
+    CTF_CONFIG_FILE="/ctf/config/patientportal.json"
+    CTF_NAME="MediVault Patient Portal"
+    WEB_SERVICE_NAME="web"
+    STARTUP_TIMEOUT="30"
+    GHCR_IMAGE="ghcr.io/banjomenny/simplectf/patientportal-web:latest"
+    LOCAL_TAG="patient-portal-web:latest"
+elif [[ "$CTF_CHOICE" == "2" ]]; then
     CTF_COMPOSE_HOST_PATH="../task-1/docker-compose.yml"
     CTF_CHALLENGE_DIR="$REPO_DIR/task-1"
     CTF_CONFIG_FILE="/ctf/config/task1.json"
@@ -46,7 +56,10 @@ if docker pull "$GHCR_IMAGE"; then
     echo "Tagged $GHCR_IMAGE → $LOCAL_TAG"
 else
     echo "GHCR pull failed (image may not be published yet) — building locally..."
-    if [[ "$CTF_CHOICE" == "2" ]]; then
+    if [[ "$CTF_CHOICE" == "3" ]]; then
+        docker compose -f "$REPO_DIR/patient-portal/docker-compose.yml" \
+                       --project-directory "$REPO_DIR/patient-portal" build
+    elif [[ "$CTF_CHOICE" == "2" ]]; then
         echo "Generating task-1 artifacts (requires Pillow + piexif)..."
         python3 -m pip install --quiet --user Pillow piexif 2>/dev/null || \
         python3 -m pip install --quiet --user --break-system-packages Pillow piexif

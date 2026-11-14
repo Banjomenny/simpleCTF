@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<div class="card hero">
+  <h1>Your health records, anywhere.</h1>
+  <p class="muted">{{ clinic.name }} patients can view records, lab results, prescriptions, appointment letters and statements online — securely, any time.</p>
+  <div>
+    <a class="btn" href="{{ url_for('register') }}">Create an account</a>
+    <a class="btn ghost" href="{{ url_for('login') }}">Sign in</a>
+  </div>
+</div>
+<div class="grid">
+  <div class="tile"><strong>📅 Appointments</strong>Book, reschedule and review visits with your care team.</div>
+  <div class="tile"><strong>🧪 Lab results</strong>See results as soon as your provider reviews them.</div>
+  <div class="tile"><strong>💊 Prescriptions</strong>Track active medications and request refills.</div>
+  <div class="tile"><strong>💳 Billing</strong>View statements and pay balances online.</div>
+</div>
+<div class="card">
+  <h2>Our providers</h2>
+  <table>
+    <thead><tr><th>Provider</th><th>Specialty</th><th>New patients</th></tr></thead>
+    <tbody>
+    {% for p in providers %}
+      <tr><td>{{ p.name }}</td><td>{{ p.specialty }}</td><td>{{ 'Accepting' if p.accepting else 'Waitlist' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
