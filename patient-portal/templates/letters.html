@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Letter templates{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Appointment letter templates</h1>
+  <p class="muted">Write a reminder letter and preview it for any patient. Placeholders such as
+    <code>{{ '{{ patient.patient_name }}' }}</code>, <code>{{ '{{ patient.physician }}' }}</code> and
+    <code>{{ '{{ appointment }}' }}</code> are filled in automatically.</p>
+  <form method="post">
+    <label for="record_id">Preview for patient</label>
+    <select id="record_id" name="record_id">
+      {% for p in patients %}<option value="{{ p.record_id }}" {% if p.record_id == record_id %}selected{% endif %}>{{ p.record_id }} — {{ p.patient_name }}</option>{% endfor %}
+    </select>
+    <label for="template">Template</label>
+    <textarea id="template" name="template">{{ template }}</textarea>
+    <button type="submit">Preview letter</button>
+  </form>
+</div>
+{% if error %}<div class="card"><h2>Template error</h2><div class="error">{{ error }}</div></div>{% endif %}
+{% if preview is not none %}<div class="card"><h2>Preview</h2><pre class="letter">{{ preview }}</pre></div>{% endif %}
+{% endblock %}

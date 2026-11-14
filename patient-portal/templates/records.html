@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}My Records{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>My medical record</h1>
+  <div id="record"><p class="muted">Loading…</p></div>
+</div>
+<script>
+  // Record ID comes from the session token.
+  const recordId = {{ claims.rid | tojson }};
+  const fields = [
+    ['record_id', 'Record #'], ['patient_name', 'Patient'], ['dob', 'Date of birth'],
+    ['blood_type', 'Blood type'], ['condition', 'Condition'], ['medication', 'Medication'],
+    ['physician', 'Physician'], ['notes', 'Physician notes'],
+  ];
+  const box = document.getElementById('record');
+  if (recordId === null) {
+    box.innerHTML = '<p class="muted">Staff accounts have no patient record.</p>';
+  } else {
+    fetch('/api/records/' + recordId)
+      .then(r => r.json())
+      .then(rec => {
+        const dl = document.createElement('dl');
+        for (const [key, label] of fields) {
+          const dt = document.createElement('dt'); dt.textContent = label;
+          const dd = document.createElement('dd'); dd.textContent = rec[key] ?? '';
+          dl.append(dt, dd);
+        }
+        box.replaceChildren(dl);
+      })
+      .catch(() => { box.innerHTML = '<p class="error">Could not load your record.</p>'; });
+  }
+</script>
+{% endblock %}

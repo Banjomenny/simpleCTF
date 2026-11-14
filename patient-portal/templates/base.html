@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MediVault{% endblock %} · {{ clinic.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <a class="logo" href="/">✚ MediVault</a>
+    <nav>
+      {% if claims %}
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('records') }}">Records</a>
+        <a href="{{ url_for('appointments') }}">Appointments</a>
+        <a href="{{ url_for('messages') }}">Messages</a>
+        <a href="{{ url_for('billing') }}">Billing</a>
+        <a href="{{ url_for('prescriptions') }}">Prescriptions</a>
+        {% if claims.role == 'admin' %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
+        <a href="{{ url_for('logout') }}">Sign out</a>
+      {% else %}
+        <a href="{{ url_for('providers') }}">Providers</a>
+        <a href="{{ url_for('contact') }}">Contact</a>
+        <a href="{{ url_for('login') }}">Sign in</a>
+        <a href="{{ url_for('register') }}">Register</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer>
+    <strong>{{ clinic.name }}</strong><br>
+    {{ clinic.address }} · {{ clinic.phone }}<br>
+    {{ clinic.hours }}<br>
+    <span class="muted">MediVault Patient Portal v2.3.1 — © 2026 {{ clinic.name }}. For demonstration use only.</span>
+  </footer>
+</body>
+</html>

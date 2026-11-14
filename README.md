@@ -2,18 +2,20 @@
 
 A self-hosted Capture the Flag platform. Each team gets their own isolated Docker challenge instance, automatically provisioned through a web registration portal.
 
-Two challenges are available — select one at deploy time via `setup.sh`:
+Three challenges are available — select one at deploy time via `setup.sh`:
 
-| Challenge | Stack | Flags | Max pts |
-|-----------|-------|-------|---------|
-| **BankingAI CTF** | PHP + MySQL | 5 | 650 |
-| **SWOCTS — Task 1** | Python Flask | 3 | 425 |
+| Challenge | Stack | Flags | Max pts | Difficulty |
+|-----------|-------|-------|---------|------------|
+| **BankingAI CTF** | PHP + MySQL | 5 | 650 | Medium |
+| **SWOCTS — Task 1** | Python Flask | 3 | 425 | Easy |
+| **MediVault Patient Portal** | Python Flask | 4 | 650 | Medium–Hard |
 
 ```
 ctf/
 ├── setup.sh        ← interactive setup wizard (start here)
 ├── challenge/      ← BankingAI CTF (PHP + MySQL)
 ├── task-1/         ← SWOCTS Task 1 (Python Flask)
+├── patient-portal/ ← MediVault Patient Portal (Python Flask)
 └── manager/        ← web portal: registration, scoring, admin panel
 ```
 
@@ -22,16 +24,17 @@ ctf/
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Quick Start — Multi-Team with Manager](#quick-start--multi-team-with-manager)
-3. [Option A — Single Instance (no manager)](#option-a--single-instance-no-manager)
-4. [How the Manager Works](#how-the-manager-works)
-5. [Scoring & First Blood](#scoring--first-blood)
-6. [Admin Panel](#admin-panel)
-7. [Switching Challenges](#switching-challenges)
-8. [Customising Flags](#customising-flags)
-9. [Stopping & Resetting](#stopping--resetting)
-10. [Troubleshooting](#troubleshooting)
-11. [Repository Layout](#repository-layout)
+2. [System Requirements](#system-requirements)
+3. [Quick Start — Multi-Team with Manager](#quick-start--multi-team-with-manager)
+4. [Option A — Single Instance (no manager)](#option-a--single-instance-no-manager)
+5. [How the Manager Works](#how-the-manager-works)
+6. [Scoring & First Blood](#scoring--first-blood)
+7. [Admin Panel](#admin-panel)
+8. [Switching Challenges](#switching-challenges)
+9. [Customising Flags](#customising-flags)
+10. [Stopping & Resetting](#stopping--resetting)
+11. [Troubleshooting](#troubleshooting)
+12. [Repository Layout](#repository-layout)
 
 ---
 
@@ -53,6 +56,49 @@ openssl version
 
 ---
 
+## System Requirements
+
+The manager runs one challenge instance **per team**, so memory scales with the
+number of simultaneous teams and with which challenge you deploy. BankingAI runs
+two containers per team (PHP/Apache **plus** a MySQL 8.0 database), so it is by
+far the heaviest. The two Flask challenges (SWOCTS Task 1 and MediVault) run a
+single lightweight container per team.
+
+**Rough per-instance footprint (idle–light load):**
+
+| Challenge | Containers / team | RAM / team |
+|-----------|-------------------|-----------|
+| BankingAI CTF | 2 (PHP + MySQL) | ~600 MB |
+| SWOCTS — Task 1 | 1 (Flask) | ~80 MB |
+| MediVault Patient Portal | 1 (Flask) | ~80 MB |
+
+Add a **base overhead of ~1.5 GB** for the host OS, the Docker daemon, and the
+manager container itself.
+
+**Estimated total RAM** (base 1.5 GB + teams × per-instance):
+
+| Teams | BankingAI | Task 1 / MediVault |
+|-------|-----------|--------------------|
+| 5  | ~4.5 GB  | ~2 GB   |
+| 10 | ~7.5 GB  | ~2.5 GB |
+| 20 | ~13.5 GB | ~3 GB   |
+| 40 | ~25.5 GB | ~5 GB   |
+
+Notes:
+- These are planning figures; real usage depends on how actively teams are
+  hammering their instances. Leave ~20% headroom and watch `docker stats`.
+- **CPU:** 2 vCPUs is fine for small events; budget roughly 1 vCPU per 8–10
+  active BankingAI teams, more if MySQL is under load. The Flask challenges are
+  very light on CPU.
+- **Disk:** images total well under 1 GB (BankingAI + MySQL ~700 MB; each Flask
+  image ~150 MB). BankingAI also creates a MySQL **data volume per team**
+  (~200 MB each) — the Flask challenges keep their state in memory and use no
+  volumes. Factor the per-team volumes into disk for large BankingAI events.
+- A small VPS (2 vCPU / 4 GB) comfortably runs either Flask challenge for a
+  classroom-sized group, or BankingAI for ~4 teams.
+
+---
+
 ## Quick Start — Multi-Team with Manager
 
 ### 1. Clone the repo
@@ -69,7 +115,7 @@ sudo bash setup.sh
 ```
 
 The wizard will:
-1. Ask which CTF to run (BankingAI or SWOCTS Task 1)
+1. Ask which CTF to run (BankingAI, SWOCTS Task 1, or MediVault Patient Portal)
 2. Ask for the `HOST_IP` players will connect to
 3. Generate random `SECRET_KEY`, `ADMIN_TOKEN`, and `FLAG_SECRET`
 4. Pull the pre-built challenge image from `ghcr.io` and tag it locally
@@ -116,6 +162,15 @@ cd task-1
 docker compose up --build -d
 # Visit http://localhost:5000
 ```
+
+**MediVault Patient Portal:**
+```bash
+cd patient-portal
+docker compose up --build -d
+# Visit http://localhost:5001
+```
+
+> No Docker? MediVault also runs on plain Python: `cd patient-portal && python run_local.py`
 
 **Stop:**
 ```bash
@@ -189,6 +244,16 @@ The **first team** to capture a flag earns a 1.2× bonus. Subsequent captures ea
 | Bash History | 200 | 240 |
 | **Total** | **425** | **510** |
 
+**MediVault Patient Portal:**
+
+| Flag | Base pts | First Blood |
+|------|----------|-------------|
+| Someone Else's Records (IDOR) | 100 | 120 |
+| Forged Credentials (weak JWT) | 150 | 180 |
+| Template Trouble (SSTI) | 175 | 210 |
+| Root of the Problem (RCE) | 225 | 270 |
+| **Total** | **650** | **780** |
+
 Hints are available at a point cost (unlocked sequentially per flag). The admin panel can enable/disable hints globally. Purchasing hints deducts points from the team's score.
 
 The scoreboard includes a **score-over-time graph** showing each team's cumulative score. Timestamps use the timezone configured by `TZ_NAME` in `manager/.env` (default: `America/New_York`).
@@ -235,6 +300,13 @@ CTF_CHALLENGE_DIR=/absolute/path/to/ctf/task-1
 CTF_CONFIG_FILE=/ctf/config/task1.json
 CTF_NAME=SWOCTS — Task 1
 STARTUP_TIMEOUT=30
+
+# MediVault Patient Portal
+CTF_COMPOSE_HOST_PATH=../patient-portal/docker-compose.yml
+CTF_CHALLENGE_DIR=/absolute/path/to/ctf/patient-portal
+CTF_CONFIG_FILE=/ctf/config/patientportal.json
+CTF_NAME=MediVault Patient Portal
+STARTUP_TIMEOUT=30
 ```
 
 Restart the manager after any `.env` change.
@@ -249,6 +321,7 @@ Flag names, point values, and hints are defined in JSON files in `manager/config
 
 - `manager/config/bankingai.json` — BankingAI flags + hints
 - `manager/config/task1.json` — SWOCTS Task 1 flags + hints
+- `manager/config/patientportal.json` — MediVault Patient Portal flags + hints
 
 Edit the JSON and restart the manager container to pick up changes. Per-team flag *values* are always derived from `FLAG_SECRET` + team name regardless of config — the JSON controls what flags exist and how they're scored.
 
@@ -273,6 +346,7 @@ rm -rf manager/data/
 ```bash
 docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml down -v
 ```
+> For a Flask challenge, swap in its compose file, e.g. `-f patient-portal/docker-compose.yml` (or `-f task-1/docker-compose.yml`).
 
 **Stop all team instances at once:**
 ```bash
@@ -334,6 +408,10 @@ cd challenge && docker compose build
 # Task 1
 docker pull ghcr.io/banjomenny/simplectf/task1-web:latest
 docker tag ghcr.io/banjomenny/simplectf/task1-web:latest task-1-web:latest
+
+# MediVault Patient Portal
+docker pull ghcr.io/banjomenny/simplectf/patientportal-web:latest
+docker tag ghcr.io/banjomenny/simplectf/patientportal-web:latest patient-portal-web:latest
 ```
 
 **Teams can't reach their instance URL**
@@ -374,6 +452,16 @@ ctf/
 │   ├── static/
 │   └── templates/
 │
+├── patient-portal/                 ← MediVault Patient Portal (Python Flask, 4 flags)
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   ├── entrypoint.sh               ← writes FLAG_RCE to the flag file, drops privileges
+│   ├── app.py                      ← portal app (IDOR / JWT / SSTI / RCE + fake data)
+│   ├── run_local.py                ← no-Docker runner (plain Python)
+│   ├── requirements.txt
+│   ├── static/
+│   └── templates/
+│
 ├── manager/                        ← team management web app
 │   ├── docker-compose.yaml
 │   ├── .env.example                ← copy to .env and fill in values
@@ -382,7 +470,8 @@ ctf/
 │   ├── requirements.txt
 │   ├── config/
 │   │   ├── bankingai.json          ← BankingAI flags + hints config
-│   │   └── task1.json              ← SWOCTS Task 1 flags + hints config
+│   │   ├── task1.json              ← SWOCTS Task 1 flags + hints config
+│   │   └── patientportal.json      ← MediVault Patient Portal flags + hints config
 │   └── templates/
 │       ├── base.html
 │       ├── index.html              ← register / login
@@ -395,7 +484,8 @@ ctf/
 └── .github/
     └── workflows/
         ├── publish-bankingai.yml   ← auto-publishes bankingai-web:latest to GHCR
-        └── publish-task1.yml       ← auto-publishes task1-web:latest to GHCR
+        ├── publish-task1.yml       ← auto-publishes task1-web:latest to GHCR
+        └── publish-patientportal.yml ← auto-publishes patientportal-web:latest to GHCR
 ```
 
 ---

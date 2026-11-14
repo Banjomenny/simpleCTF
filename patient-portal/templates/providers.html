@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Providers{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Our providers</h1>
+  <p class="muted">The care team at {{ clinic.name }}.</p>
+  <table>
+    <thead><tr><th>Provider</th><th>Specialty</th><th>New patients</th></tr></thead>
+    <tbody>
+    {% for p in providers %}
+      <tr><td>{{ p.name }}</td><td>{{ p.specialty }}</td><td>{{ 'Accepting' if p.accepting else 'Waitlist' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

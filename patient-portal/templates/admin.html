@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Clinic administration</h1>
+  <p class="muted">Staff console access token:</p>
+  <div class="flag">{{ flag }}</div>
+  <p class="muted">Need to send appointment reminders? Use the <a href="{{ url_for('admin_letters') }}">letter template editor</a>.</p>
+</div>
+<div class="card">
+  <h2>Patient directory</h2>
+  <table>
+    <thead><tr><th>Record</th><th>Patient</th><th>DOB</th><th>Condition</th></tr></thead>
+    <tbody>
+    {% for p in patients %}
+      <tr><td>{{ p.record_id }}</td><td>{{ p.patient_name }}</td><td>{{ p.dob }}</td><td>{{ p.condition }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

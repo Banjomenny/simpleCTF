@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Secure messages</h1>
+  <p class="muted">Messages from your care team and clinic departments.</p>
+  {% for m in messages %}
+    <div class="message {{ 'unread' if m.unread else '' }}">
+      <div class="message-head"><strong>{{ m.sender }}</strong><span class="muted">{{ m.date }}</span></div>
+      <div class="message-subj">{{ m.subject }}</div>
+      <p class="muted">{{ m.body }}</p>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

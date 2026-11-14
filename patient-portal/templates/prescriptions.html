@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Prescriptions{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Prescriptions</h1>
+  <p class="muted">Active medications on file.</p>
+  <table>
+    <thead><tr><th>Medication</th><th>Directions</th><th>Refills left</th><th>Prescriber</th></tr></thead>
+    <tbody>
+    {% for r in prescriptions %}
+      <tr><td><strong>{{ r.drug }}</strong></td><td>{{ r.directions }}</td><td>{{ r.refills }}</td><td>{{ r.prescriber }}</td></tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">No active prescriptions.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

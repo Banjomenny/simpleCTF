@@ -1,0 +1,20 @@
+{
+  "ctf_name": "MediVault Patient Portal",
+  "flag_name_cost": 5,
+  "flags": [
+    {"id":"FLAG_IDOR", "name":"Someone Else's Records", "points":100, "fb_multiplier":1.2},
+    {"id":"FLAG_JWT",  "name":"Forged Credentials",     "points":150, "fb_multiplier":1.2},
+    {"id":"FLAG_SSTI", "name":"Template Trouble",       "points":175, "fb_multiplier":1.2},
+    {"id":"FLAG_RCE",  "name":"Root of the Problem",    "points":225, "fb_multiplier":1.2}
+  ],
+  "hints": [
+    {"id":1, "flag_id":"FLAG_IDOR","order":1,"cost":10,"text":"Register an account and watch the network tab when you open My Records."},
+    {"id":2, "flag_id":"FLAG_IDOR","order":2,"cost":25,"text":"The API only checks that you're logged in, not whose record you asked for. Try lower record numbers — the first one is special."},
+    {"id":3, "flag_id":"FLAG_JWT","order":1,"cost":15,"text":"Your session cookie is a JWT. Decode it (jwt.io or base64) and look at the claims."},
+    {"id":4, "flag_id":"FLAG_JWT","order":2,"cost":40,"text":"The HS256 key is a dictionary word. Crack it with hashcat -m 16500 or john --format=HMAC-SHA256 and rockyou.txt, then re-sign the token with role=admin."},
+    {"id":5, "flag_id":"FLAG_SSTI","order":1,"cost":15,"text":"The admin letter editor fills in {{ placeholders }}. What happens with {{ 7*7 }}?"},
+    {"id":6, "flag_id":"FLAG_SSTI","order":2,"cost":35,"text":"It's Flask/Jinja2. Flask keeps its settings in an object every template can see: {{ config }}."},
+    {"id":7, "flag_id":"FLAG_RCE","order":1,"cost":20,"text":"Jinja2 templates can reach Python globals. Look for objects whose __init__.__globals__ contain the os module."},
+    {"id":8, "flag_id":"FLAG_RCE","order":2,"cost":45,"text":"Try {{ cycler.__init__.__globals__.os.popen('cat /flag.txt').read() }}"}
+  ]
+}
