@@ -346,6 +346,7 @@ rm -rf manager/data/
 ```bash
 docker compose -p ctf_<teamname> -f challenge/docker-compose.yaml down -v
 ```
+> For a Flask challenge, swap in its compose file, e.g. `-f patient-portal/docker-compose.yml` (or `-f task-1/docker-compose.yml`).
 
 **Stop all team instances at once:**
 ```bash
@@ -407,6 +408,10 @@ cd challenge && docker compose build
 # Task 1
 docker pull ghcr.io/banjomenny/simplectf/task1-web:latest
 docker tag ghcr.io/banjomenny/simplectf/task1-web:latest task-1-web:latest
+
+# MediVault Patient Portal
+docker pull ghcr.io/banjomenny/simplectf/patientportal-web:latest
+docker tag ghcr.io/banjomenny/simplectf/patientportal-web:latest patient-portal-web:latest
 ```
 
 **Teams can't reach their instance URL**
